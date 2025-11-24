@@ -1,43 +1,72 @@
 "use client"
 
 import React, { useState, useRef, KeyboardEvent } from 'react';
-import { Code, Image as ImageIcon, ArrowUp } from 'lucide-react';
+import { Code, Image as ImageIcon, ArrowUp, AlertCircle, Loader2 } from 'lucide-react';
+import { sendMessage } from '@/utils/api-client';
 
 interface ChatInputProps {
   onSubmit?: (message: string) => void;
   placeholder?: string;
+  conversationId?: string;
 }
 
 /**
  * Chat input component for the analog design AI agent.
- * Simplified design matching Figma specifications.
+ * Simplified design matching Figma specifications with API integration.
  */
 const ChatInput: React.FC<ChatInputProps> = ({ 
   onSubmit,
-  placeholder = "Request any changes..." 
+  placeholder = "Request any changes...",
+  conversationId = "5f66002a-6690-48ae-b184-716034f36855" // Default from your Postman
 }) => {
   const [input, setInput] = useState('');
   const [isComposing, setIsComposing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const imageInputRef = useRef<HTMLInputElement>(null);
 
-  const handleSubmit = (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     
-    if (!input.trim() || isComposing) return;
+    if (!input.trim() || isComposing || isLoading) return;
 
-    if (onSubmit) {
-      onSubmit(input);
-    } else {
-      // TODO: Implement message sending logic
-      console.log('Sending message:', input);
-    }
-    
-    // Clear input after sending
-    setInput('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Call the API
+      const response = await sendMessage(conversationId, input.trim());
+      
+      console.log('API Response:', response);
+      
+      // Call the parent onSubmit if provided
+      if (onSubmit) {
+        onSubmit(input);
+      }
+      
+      // Clear input after successful send
+      setInput('');
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
+      
+      // You could emit the response to a parent component here
+      // or handle it in a global state management solution
+      
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      setError(err instanceof Error ? err.message : 'Failed to send message');
+      
+      // If authentication error, redirect to login
+      if (err instanceof Error && err.message.includes('log in')) {
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -50,6 +79,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
+    setError(null); // Clear error when user starts typing
     
     // Auto-resize textarea
     if (textareaRef.current) {
@@ -69,7 +99,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // TODO: Handle file upload
+      // TODO: Handle file upload to API
       console.log('File selected:', file.name);
       if (onSubmit) {
         onSubmit(`Uploaded: ${file.name}`);
@@ -80,6 +110,14 @@ const ChatInput: React.FC<ChatInputProps> = ({
   return (
     <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0 transition-colors">
       <form onSubmit={handleSubmit} className="space-y-2">
+        {/* Error message */}
+        {error && (
+          <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400">
+            <AlertCircle size={16} className="flex-shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
         {/* Main input area */}
         <div className="relative">
           <textarea
@@ -90,16 +128,21 @@ const ChatInput: React.FC<ChatInputProps> = ({
             onCompositionStart={() => setIsComposing(true)}
             onCompositionEnd={() => setIsComposing(false)}
             placeholder={placeholder}
+            disabled={isLoading}
             rows={1}
-            className="w-full px-4 py-2.5 pr-12 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none overflow-hidden max-h-[100px] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
+            className="w-full px-4 py-2.5 pr-12 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none overflow-hidden max-h-[100px] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <button
             type="submit"
-            disabled={!input.trim()}
-            className="absolute right-2 bottom-2.5 p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+            disabled={!input.trim() || isLoading}
+            className="absolute right-2 bottom-2.5 p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
             title="Send message (Enter)"
           >
-            <ArrowUp size={16} />
+            {isLoading ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <ArrowUp size={16} />
+            )}
           </button>
         </div>
 
@@ -108,7 +151,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
           <button
             type="button"
             onClick={handleAttachNetlist}
-            className="flex items-center px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+            disabled={isLoading}
+            className="flex items-center px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50"
           >
             <Code size={14} className="mr-1.5" />
             Netlist
@@ -116,7 +160,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
           <button
             type="button"
             onClick={handleAttachImage}
-            className="flex items-center px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors"
+            disabled={isLoading}
+            className="flex items-center px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50"
           >
             <ImageIcon size={14} className="mr-1.5" />
             Image
@@ -129,6 +174,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           accept=".sp,.cir,.net,.netlist"
           className="hidden"
           onChange={handleFileChange}
+          disabled={isLoading}
         />
         <input
           ref={imageInputRef}
@@ -136,6 +182,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
           accept="image/*"
           className="hidden"
           onChange={handleFileChange}
+          disabled={isLoading}
         />
       </form>
     </div>

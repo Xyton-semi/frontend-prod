@@ -89,17 +89,17 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
 
       setSubmitStatus('success');
       
-      // Store tokens and user info (in production, use httpOnly cookies)
+      // Store tokens and user info in sessionStorage (not localStorage)
       if (data.tokens) {
-        localStorage.setItem('accessToken', data.tokens.accessToken);
-        localStorage.setItem('refreshToken', data.tokens.refreshToken);
-        localStorage.setItem('idToken', data.tokens.idToken);
+        sessionStorage.setItem('accessToken', data.tokens.accessToken);
+        sessionStorage.setItem('refreshToken', data.tokens.refreshToken);
+        sessionStorage.setItem('idToken', data.tokens.idToken);
       }
-      
+
       // Store user info
       if (data.user) {
-        localStorage.setItem('userName', data.user.name);
-        localStorage.setItem('userEmail', data.user.email);
+        sessionStorage.setItem('userName', data.user.name);
+        sessionStorage.setItem('userEmail', data.user.email);
       }
       
       // Redirect to dashboard after 1 second

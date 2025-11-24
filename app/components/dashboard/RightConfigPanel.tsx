@@ -1,5 +1,5 @@
-import React from 'react';
-import { PanelRightClose, Settings } from 'lucide-react';
+import React, { useRef } from 'react';
+import { PanelRightClose, Settings, MessageSquarePlus } from 'lucide-react';
 import SchematicView from './views/SchematicView';
 import TestbenchView from './views/TestbenchView';
 import ChatInput from './ChatInput';
@@ -14,14 +14,42 @@ interface RightConfigPanelProps {
 }
 
 const RightConfigPanel: React.FC<RightConfigPanelProps> = ({ isOpen, setIsOpen, activeTab, setActiveTab }) => {
+  const chatInputRef = useRef<HTMLDivElement>(null);
+
+  const scrollToChatInput = () => {
+    chatInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    // Optional: Focus the textarea after scrolling
+    setTimeout(() => {
+      const textarea = chatInputRef.current?.querySelector('textarea');
+      textarea?.focus();
+    }, 500);
+  };
+
   return (
     <div className={`${isOpen ? 'w-96' : 'w-0'} flex-shrink-0 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300 ease-in-out overflow-hidden`}>
       <div className="p-6 flex-shrink-0">
           <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Configuration</h2>
-              <button onClick={() => setIsOpen(false)} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 lg:hidden">
-                  <PanelRightClose size={20} />
-              </button>
+              <div className="flex items-center gap-2">
+                {/* New Chat button - more prominent */}
+                <button 
+                  onClick={scrollToChatInput} 
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                  title="Start new chat"
+                  aria-label="Start new chat"
+                >
+                  <MessageSquarePlus size={16} />
+                  <span>New Chat</span>
+                </button>
+                {/* Close button for mobile */}
+                <button 
+                  onClick={() => setIsOpen(false)} 
+                  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 lg:hidden p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                  aria-label="Close panel"
+                >
+                    <PanelRightClose size={20} />
+                </button>
+              </div>
           </div>
 
         {/* Tabs */}
@@ -53,7 +81,11 @@ const RightConfigPanel: React.FC<RightConfigPanelProps> = ({ isOpen, setIsOpen, 
             </div>
         )}
       </div>
-      <ChatInput />
+      
+      {/* Chat Input with ref */}
+      <div ref={chatInputRef}>
+        <ChatInput />
+      </div>
     </div>
   );
 };
