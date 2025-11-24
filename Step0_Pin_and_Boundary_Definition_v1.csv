@@ -1,0 +1,11 @@
+﻿RowType,Name,PadConn,Direction,Function,Definition / Notes,VoltageMin,VoltageMax,Units,ESD_HBM_kV,ESD_CDM_V,Value,ValueUnits,Comments
+Pin,VIN,Y,Input,Input supply to LDO,Recommended operating range from datasheet ROC table,1.6,6,V,2,0.75,,,Also see Absolute Maximum Ratings: -0.3 V to 6.5 V
+Pin,VOUT,Y,Output,Regulated output node,Nominal output voltage range from datasheet ROC table,0.8,5.5,V,2,0.75,,,"VOUT abs max limited to min(6.5 V, VIN + 0.3 V)"
+Pin,EN,Y,Input,Enable control input,Digital / logic-compatible enable pin,0,6,V,2,0.75,,,Internal 500 kÎ© pulldown to GND when VEN < VEN(HI)
+Pin,GND,Y,Bidirectional (return),Circuit return,Reference node for all voltages,0,0,V,,,,,Kelvin return handled later in Step 7 (layout)
+Boundary,Package type,,,,Selected small-outline DSBGA for area-driven LDO,,,,,,YCK 4-ball DSBGA,â€”,0.616 mm Ã— 0.616 mm package footprint
+Boundary,Usable die area,,,,80% of package area used as first-pass die-area budget,,,,,,0.38,mmÂ²,Effective silicon budget â‰ˆ 0.38 mmÂ²
+Boundary,PDK node,,,,Assumed automotive-capable BCD process with precision poly + MIM caps,,,,,,130 nm,m,130 nm BCD with Hi-Res poly and MIM capacitors
+Boundary,Thermal resistance RÎ¸JA,,,,From datasheet thermal table for DSBGA package,,,,,,201.4,Â°C/W,Use this for first-pass junction temperature estimates
+Boundary,ESD rating,,,,"Datasheet ESD ratings (HBM, CDM)",,,,2,0.75,,,"2 kV HBM, 750 V CDM typical"
+Decision,Decision Box 0,,,,Are all external pins and pad connections defined and mapped to the PDK pad library?,,,,,,,,If No: complete pin list or ESD targets. If Yes: proceed to Step 1.
