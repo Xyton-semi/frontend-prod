@@ -89,7 +89,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
 
       setSubmitStatus('success');
       
-      // Store tokens and user info in sessionStorage (not localStorage)
+      // Store tokens and user info in sessionStorage
       if (data.tokens) {
         sessionStorage.setItem('accessToken', data.tokens.accessToken);
         sessionStorage.setItem('refreshToken', data.tokens.refreshToken);
@@ -226,7 +226,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                 onClick={onSwitchToRegister}
                 className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium"
               >
-                Create Account
+                Create Accounts
               </button>
             ) : (
               <button
@@ -234,7 +234,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                 onClick={() => router.push('/register')}
                 className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium"
               >
-                Create Account
+                Create Accounta
               </button>
             )}
           </p>

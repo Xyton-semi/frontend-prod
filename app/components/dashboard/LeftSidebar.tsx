@@ -59,9 +59,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ isOpen, setIsOpen }) => {
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    // Get user info from localStorage
-    const storedName = localStorage.getItem('userName') || 'User';
-    const storedEmail = localStorage.getItem('userEmail') || '';
+    // Get user info from sessionStorage
+    const storedName = sessionStorage.getItem('userName') || 'User';
+    const storedEmail = sessionStorage.getItem('userEmail') || '';
     setUserName(storedName);
     setUserEmail(storedEmail);
   }, []);
@@ -86,11 +86,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({ isOpen, setIsOpen }) => {
   };
 
   const handleSignOut = () => {
-    localStorage.removeItem('accessToken');
-    localStorage.removeItem('refreshToken');
-    localStorage.removeItem('idToken');
-    localStorage.removeItem('userName');
-    localStorage.removeItem('userEmail');
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('refreshToken');
+    sessionStorage.removeItem('idToken');
+    sessionStorage.removeItem('userName');
+    sessionStorage.removeItem('userEmail');
     setMenuOpen(false);
     router.push('/login');
   };

@@ -130,10 +130,24 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
 
       setSubmitStatus('success');
       
-      // Redirect to dashboard after 2 seconds
-      setTimeout(() => {
-        router.push('/');
-      }, 2000);
+      // If user is confirmed and has tokens (auto-login happened), store them
+      // Otherwise, redirect to login page
+      if (data.requiresVerification) {
+        // Redirect to login with message about verification
+        setTimeout(() => {
+          if (onSwitchToLogin) {
+            onSwitchToLogin();
+          } else {
+            router.push('/login?message=verification-required');
+          }
+        }, 2000);
+      } else {
+        // User is confirmed, redirect to dashboard
+        // If backend sync is needed, it will happen on first login
+        setTimeout(() => {
+          router.push('/login?message=registration-success');
+        }, 2000);
+      }
     } catch (error) {
       setSubmitStatus('error');
       setErrorMessage(error instanceof Error ? error.message : 'An unexpected error occurred');
@@ -143,14 +157,14 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
   };
 
   return (
-    <div className="w-full max-h-full overflow-y-auto p-6 sm:p-8">
+    <div className="w-full p-4 sm:p-6">
       {/* Header */}
-      <div className="text-center mb-6">  
-        <div className="inline-flex items-center justify-center w-12 h-12 sm:w-14 sm:h-14 bg-red-50 dark:bg-red-950 rounded-full mb-3">
-          <UserPlus size={24} className="text-red-600 sm:w-7 sm:h-7" />
+      <div className="text-center mb-4">  
+        <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-red-50 dark:bg-red-950 rounded-full mb-2">
+          <UserPlus size={20} className="text-red-600 sm:w-6 sm:h-6" />
         </div>
-        <h1 className="text-xl sm:text-2xl font-semibold text-gray-900 dark:text-white mb-1">Create Account</h1>
-        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">Register to start designing analog circuits</p>
+        <h1 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white mb-1">Create Account</h1>
+        <p className="text-xs text-gray-600 dark:text-gray-400">Register to start designing analog circuits</p>
       </div>
 
       {/* Success Message */}
@@ -159,7 +173,12 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
           <CheckCircle2 size={18} className="text-green-600 dark:text-green-400 flex-shrink-0" />
           <div>
             <p className="text-sm font-medium text-green-800 dark:text-green-200">Registration successful!</p>
-            <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">Redirecting to dashboard...</p>
+            <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
+              {formData.email.includes('verification') 
+                ? 'Please check your email to verify your account.'
+                : 'Redirecting to login...'
+              }
+            </p>
           </div>
         </div>
       )}
@@ -176,7 +195,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
       )}
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-3">
         {/* Name */}
         <div>
           <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -320,7 +339,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
             name="description"
             value={formData.description}
             onChange={handleChange}
-            rows={2}
+            rows={1}
             className="w-full px-3 py-2 text-sm text-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
             placeholder="Tell us about yourself (optional)"
           />
@@ -330,7 +349,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
         <button
           type="submit"
           disabled={isSubmitting || submitStatus === 'success'}
-          className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 dark:hover:bg-red-800 text-white text-sm font-medium rounded-lg disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+          className="w-full py-2 px-4 bg-red-600 hover:bg-red-700 dark:hover:bg-red-800 text-white text-sm font-medium rounded-lg disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
         >
           {isSubmitting ? (
             <>
@@ -348,7 +367,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
         </button>
 
         {/* Login Link */}
-        <div className="text-center pt-3">
+        <div className="text-center pt-2">
           <p className="text-sm text-gray-600 dark:text-gray-400">
             Already have an account?{' '}
             {onSwitchToLogin ? (
@@ -370,7 +389,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
             )}
           </p>
         </div>
-        </form>
+      </form>
     </div>
   );
 };

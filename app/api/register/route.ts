@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { signUp } from '@/utils/cognito';
+import { signUp, login } from '@/utils/cognito';
 
 interface RegisterRequest {
   name: string;
@@ -9,6 +9,8 @@ interface RegisterRequest {
   role: string;
   description?: string;
 }
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://7j7y34kk48.execute-api.us-east-1.amazonaws.com/v1';
 
 export async function POST(request: NextRequest) {
   try {
@@ -48,6 +50,53 @@ export async function POST(request: NextRequest) {
       role: body.role,
     });
 
+    // If user is auto-confirmed, log them in to get a token
+    let authToken: string | null = null;
+    if (cognitoResponse.userConfirmed) {
+      try {
+        const authResponse = await login({
+          email: body.email,
+          password: body.password,
+        });
+        authToken = authResponse.idToken;
+      } catch (loginError) {
+        console.error('Auto-login failed:', loginError);
+        // Continue without token - user can login separately
+      }
+    }
+
+    // Call backend signup API if we have a token
+    if (authToken) {
+      try {
+        const backendResponse = await fetch(`${API_BASE_URL}/signup`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `bearer ${authToken}`,
+          },
+          body: JSON.stringify({
+            email: body.email,
+            name: body.name,
+            organization: body.organization,
+            role: body.role,
+            description: body.description || '',
+          }),
+        });
+
+        if (!backendResponse.ok) {
+          const errorData = await backendResponse.json().catch(() => ({}));
+          console.error('Backend signup failed:', errorData);
+          // Don't fail the whole registration if backend call fails
+        } else {
+          const backendData = await backendResponse.json();
+          console.log('Backend signup successful:', backendData);
+        }
+      } catch (backendError) {
+        console.error('Backend signup error:', backendError);
+        // Continue even if backend signup fails - user is registered in Cognito
+      }
+    }
+
     // Return success response
     return NextResponse.json(
       {
@@ -61,6 +110,7 @@ export async function POST(request: NextRequest) {
           confirmed: cognitoResponse.userConfirmed,
         },
         requiresVerification: !cognitoResponse.userConfirmed,
+        backendSyncRequired: !authToken, // Flag to indicate backend sync is needed after login
       },
       { status: 201 }
     );
@@ -78,4 +128,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

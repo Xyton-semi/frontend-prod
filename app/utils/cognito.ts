@@ -31,8 +31,8 @@ export interface SignUpParams {
   email: string;
   password: string;
   name: string;
-  organization?: string;
-  role?: string;
+  organization?: string;  // Not saved to Cognito, only to backend
+  role?: string;          // Not saved to Cognito, only to backend
 }
 
 export interface SignUpResponse {
@@ -55,13 +55,16 @@ export interface LoginResponse {
 
 /**
  * Register a new user with Cognito
+ * Note: Only email, name, and password are saved to Cognito
+ * Organization and role will be saved to backend database via /signup API
  */
 export async function signUp(params: SignUpParams): Promise<SignUpResponse> {
   if (!USER_POOL_ID || !CLIENT_ID || !CLIENT_SECRET) {
     throw new Error('Cognito configuration is missing. Please check your environment variables.');
   }
 
-  const { email, password, name, organization, role } = params;
+  const { email, password, name } = params;
+  // organization and role are intentionally not saved to Cognito
   const secretHash = computeSecretHash(email);
 
   try {
@@ -73,8 +76,6 @@ export async function signUp(params: SignUpParams): Promise<SignUpResponse> {
       UserAttributes: [
         { Name: 'email', Value: email },
         { Name: 'name', Value: name },
-        ...(organization ? [{ Name: 'custom:organization', Value: organization }] : []),
-        ...(role ? [{ Name: 'custom:role', Value: role }] : []),
       ],
     });
 
@@ -142,4 +143,3 @@ export async function login(params: LoginParams): Promise<LoginResponse> {
     throw new Error(error.message || 'Failed to authenticate user');
   }
 }
-

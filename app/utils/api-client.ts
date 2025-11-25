@@ -24,27 +24,27 @@ export interface ApiError {
 }
 
 /**
- * Get the stored access token from localStorage
+ * Get the stored access token from sessionStorage
  */
 function getAccessToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('accessToken');
+  return sessionStorage.getItem('accessToken');
 }
 
 /**
- * Get the stored ID token from localStorage (use this for API calls)
+ * Get the stored ID token from sessionStorage (use this for API calls)
  */
 function getIdToken(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('idToken');
+  return sessionStorage.getItem('idToken');
 }
 
 /**
- * Get user email from localStorage
+ * Get user email from sessionStorage
  */
 function getUserEmail(): string | null {
   if (typeof window === 'undefined') return null;
-  return localStorage.getItem('userEmail');
+  return sessionStorage.getItem('userEmail');
 }
 
 /**
