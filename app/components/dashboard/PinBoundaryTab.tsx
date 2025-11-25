@@ -35,22 +35,23 @@ Decision,Decision Box 0,,,,Are all external pins and pad connections defined and
         try {
           const response = await fetch(csvFilePath);
           const text = await response.text();
-          let parsed = parseCSV(text);
+          // Explicitly type the parser to return CSVRow[]
+          let parsed = parseCSV<CSVRow>(text);
           // Randomize the data
           parsed = randomizePinBoundaryData(parsed);
           setCsvData(parsed);
         } catch (error) {
           console.error('Error loading CSV:', error);
-          // Fallback to default data
-          let parsed = parseCSV(defaultCSVData);
+          // Fallback to default data with explicit typing
+          let parsed = parseCSV<CSVRow>(defaultCSVData);
           parsed = randomizePinBoundaryData(parsed);
           setCsvData(parsed);
         } finally {
           setIsLoading(false);
         }
       } else {
-        // Use default data
-        let parsed = parseCSV(defaultCSVData);
+        // Use default data with explicit typing
+        let parsed = parseCSV<CSVRow>(defaultCSVData);
         parsed = randomizePinBoundaryData(parsed);
         setCsvData(parsed);
       }
@@ -99,4 +100,3 @@ Decision,Decision Box 0,,,,Are all external pins and pad connections defined and
 };
 
 export default PinBoundaryTab;
-

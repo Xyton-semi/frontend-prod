@@ -1,4 +1,5 @@
 export interface CSVRow {
+  [key: string]: string; // Add this index signature
   RowType: string;
   Name: string;
   PadConn: string;
@@ -70,4 +71,3 @@ function parseCSVLine(line: string): string[] {
   result.push(current.trim());
   return result;
 }
-

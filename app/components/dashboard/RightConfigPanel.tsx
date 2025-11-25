@@ -3,6 +3,7 @@ import { PanelRightClose, Settings, MessageSquarePlus } from 'lucide-react';
 import SchematicView from './views/SchematicView';
 import TestbenchView from './views/TestbenchView';
 import ChatInput from './ChatInput';
+import NewChatInput from './NewChatInput';
 
 type TabType = 'schematic' | 'testbench' | 'layout';
 
@@ -84,7 +85,8 @@ const RightConfigPanel: React.FC<RightConfigPanelProps> = ({ isOpen, setIsOpen, 
       
       {/* Chat Input with ref */}
       <div ref={chatInputRef}>
-        <ChatInput />
+        <NewChatInput />
+        {/* <ChatInput /> */}
       </div>
     </div>
   );
