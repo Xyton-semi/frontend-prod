@@ -102,9 +102,9 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
         sessionStorage.setItem('userEmail', data.user.email);
       }
       
-      // Redirect to dashboard after 1 second
+      // Redirect to welcome page after 1 second
       setTimeout(() => {
-        router.push('/');
+        router.push('/welcome');
       }, 1000);
     } catch (error) {
       setSubmitStatus('error');
@@ -131,7 +131,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
           <CheckCircle2 size={18} className="text-green-600 dark:text-green-400 flex-shrink-0" />
           <div>
             <p className="text-sm font-medium text-green-800 dark:text-green-200">Login successful!</p>
-            <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">Redirecting to dashboard...</p>
+            <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">Taking you to your workspace...</p>
           </div>
         </div>
       )}
@@ -226,7 +226,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                 onClick={onSwitchToRegister}
                 className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium"
               >
-                Create Accounts
+                Create Account
               </button>
             ) : (
               <button
@@ -234,7 +234,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
                 onClick={() => router.push('/register')}
                 className="text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 font-medium"
               >
-                Create Accounta
+                Create Account
               </button>
             )}
           </p>
@@ -245,4 +245,3 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
 };
 
 export default LoginForm;
-
