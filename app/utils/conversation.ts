@@ -1,11 +1,13 @@
 /**
- * Conversation Management API
- * Handles creating conversations, sending messages, and polling for responses
+ * Conversation API - WITH Authentication Headers
+ * Your API returns 401, so it DOES need auth tokens
  */
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://7j7y34kk48.execute-api.us-east-1.amazonaws.com/v1';
 
+// ============================================================================
 // TYPES
+// ============================================================================
 
 export interface Conversation {
   id: string;
@@ -18,20 +20,10 @@ export interface ConversationsResponse {
   conversations: Conversation[];
 }
 
-export interface NewConversationRequest {
-  email: string;
-  query: string;
-}
-
 export interface NewConversationResponse {
   message_id: string;
   conversation_id: string;
   timestamp: string;
-}
-
-export interface SendMessageRequest {
-  query: string;
-  user_id: string;
 }
 
 export interface SendMessageResponse {
@@ -47,43 +39,87 @@ export interface MessageStatus {
   timestamp: string;
 }
 
-// TOKEN MANAGEMENT
+// ============================================================================
+// AUTHENTICATION HELPERS
+// ============================================================================
 
-function getStoredTokens() {
+/**
+ * Get authentication token (tries multiple token types)
+ */
+function getAuthToken(): string | null {
   if (typeof window === 'undefined') return null;
   
-  return {
-    accessToken: sessionStorage.getItem('accessToken'),
-    refreshToken: sessionStorage.getItem('refreshToken'),
-    idToken: sessionStorage.getItem('idToken'),
-  };
+  // Try different token types in order of preference
+  const idToken = sessionStorage.getItem('idToken');
+  const accessToken = sessionStorage.getItem('accessToken');
+  
+  // Return the first non-empty token
+  if (idToken && idToken.trim() !== '') return idToken;
+  if (accessToken && accessToken.trim() !== '') return accessToken;
+  
+  return null;
 }
 
+/**
+ * Get user email
+ */
 function getUserEmail(): string | null {
   if (typeof window === 'undefined') return null;
   return sessionStorage.getItem('userEmail');
 }
 
+/**
+ * Check if user is authenticated
+ */
+export function isAuthenticated(): boolean {
+  const email = getUserEmail();
+  const token = getAuthToken();
+  
+  // User is authenticated if they have email
+  // Token is optional depending on API requirements
+  return !!(email && email.trim().length > 0);
+}
+
+/**
+ * Get auth headers for API requests
+ */
+function getAuthHeaders(): HeadersInit {
+  const token = getAuthToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+  };
+  
+  // Add Authorization header if we have a token
+  if (token && token.trim() !== '') {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  
+  return headers;
+}
+
+// ============================================================================
 // API CALLS
+// ============================================================================
 
 /**
  * Create a new conversation with an initial query
  */
 export async function createNewConversation(query: string): Promise<NewConversationResponse> {
-  const tokens = getStoredTokens();
   const userEmail = getUserEmail();
 
-  if (!tokens?.idToken || !userEmail) {
-    throw new Error('No authentication token found. Please log in.');
+  if (!userEmail) {
+    throw new Error('Please sign in to start a conversation');
   }
 
   try {
+    // console.log('📤 Creating conversation for:', userEmail);
+    
+    const headers = getAuthHeaders();
+    // console.log('Headers:', headers);
+    
     const response = await fetch(`${API_BASE_URL}/new_query`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `bearer ${tokens.idToken}`,
-      },
+      headers: headers,
       body: JSON.stringify({
         email: userEmail,
         query: query,
@@ -100,15 +136,19 @@ export async function createNewConversation(query: string): Promise<NewConversat
         errorMessage = await response.text() || errorMessage;
       }
 
-      if (response.status === 401 || response.status === 403) {
-        throw new Error('Authentication failed. Please log in again.');
+      if (response.status === 401) {
+        throw new Error('Authentication failed. Your session may have expired. Please sign in again.');
       }
 
       throw new Error(errorMessage);
     }
 
-    return await response.json();
+    const data = await response.json();
+    // console.log('✅ Conversation created:', data.conversation_id);
+    
+    return data;
   } catch (error) {
+    console.error('❌ Failed to create conversation:', error);
     if (error instanceof Error) {
       throw error;
     }
@@ -123,22 +163,22 @@ export async function sendMessageToConversation(
   conversationId: string,
   query: string
 ): Promise<SendMessageResponse> {
-  const tokens = getStoredTokens();
   const userEmail = getUserEmail();
 
-  if (!tokens?.idToken || !userEmail) {
-    throw new Error('No authentication token found. Please log in.');
+  if (!userEmail) {
+    throw new Error('Please sign in to send messages');
   }
 
   try {
+    // console.log('📤 Sending message to conversation:', conversationId);
+    
+    const headers = getAuthHeaders();
+    
     const response = await fetch(
       `${API_BASE_URL}/conversation/${conversationId}/message`,
       {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `bearer ${tokens.idToken}`,
-        },
+        headers: headers,
         body: JSON.stringify({
           query: query,
           user_id: userEmail,
@@ -156,15 +196,19 @@ export async function sendMessageToConversation(
         errorMessage = await response.text() || errorMessage;
       }
 
-      if (response.status === 401 || response.status === 403) {
-        throw new Error('Authentication failed. Please log in again.');
+      if (response.status === 401) {
+        throw new Error('Authentication failed. Please sign in again.');
       }
 
       throw new Error(errorMessage);
     }
 
-    return await response.json();
+    const data = await response.json();
+    // console.log('✅ Message sent:', data.message_id);
+    
+    return data;
   } catch (error) {
+    console.error('❌ Failed to send message:', error);
     if (error instanceof Error) {
       throw error;
     }
@@ -179,20 +223,14 @@ export async function getMessageStatus(
   conversationId: string,
   messageId: string
 ): Promise<MessageStatus> {
-  const tokens = getStoredTokens();
-
-  if (!tokens?.idToken) {
-    throw new Error('No authentication token found. Please log in.');
-  }
-
   try {
+    const headers = getAuthHeaders();
+    
     const response = await fetch(
       `${API_BASE_URL}/conversation/${conversationId}/message/${messageId}`,
       {
         method: 'GET',
-        headers: {
-          'Authorization': `bearer ${tokens.idToken}`,
-        },
+        headers: headers,
       }
     );
 
@@ -204,10 +242,6 @@ export async function getMessageStatus(
         errorMessage = errorData.message || errorData.error || errorMessage;
       } catch {
         errorMessage = await response.text() || errorMessage;
-      }
-
-      if (response.status === 401 || response.status === 403) {
-        throw new Error('Authentication failed. Please log in again.');
       }
 
       throw new Error(errorMessage);
@@ -224,11 +258,6 @@ export async function getMessageStatus(
 
 /**
  * Poll for message completion with automatic retries
- * @param conversationId - The conversation ID
- * @param messageId - The message ID to poll
- * @param onProgress - Callback for progress updates
- * @param maxAttempts - Maximum number of polling attempts (default: 60)
- * @param intervalMs - Polling interval in milliseconds (default: 2000)
  */
 export async function pollForMessageCompletion(
   conversationId: string,
@@ -250,6 +279,7 @@ export async function pollForMessageCompletion(
 
       // Check if processing is complete
       if (status.status === 'Complete') {
+        // console.log('✅ Message processing complete');
         return status;
       }
 
@@ -279,21 +309,22 @@ export async function pollForMessageCompletion(
  * Get all conversations for the current user
  */
 export async function getUserConversations(): Promise<ConversationsResponse> {
-  const tokens = getStoredTokens();
   const userEmail = getUserEmail();
 
-  if (!tokens?.idToken || !userEmail) {
-    throw new Error('No authentication token found. Please log in.');
+  if (!userEmail) {
+    throw new Error('Please sign in to view conversations');
   }
 
   try {
+    // console.log('📥 Fetching conversations for:', userEmail);
+    
+    const headers = getAuthHeaders();
+    
     const response = await fetch(
       `${API_BASE_URL}/conversation?user_id=${encodeURIComponent(userEmail)}`,
       {
         method: 'GET',
-        headers: {
-          'Authorization': `bearer ${tokens.idToken}`,
-        },
+        headers: headers,
       }
     );
 
@@ -307,14 +338,13 @@ export async function getUserConversations(): Promise<ConversationsResponse> {
         errorMessage = await response.text() || errorMessage;
       }
 
-      if (response.status === 401 || response.status === 403) {
-        throw new Error('Authentication failed. Please log in again.');
-      }
-
       throw new Error(errorMessage);
     }
 
-    return await response.json();
+    const data = await response.json();
+    // console.log('✅ Fetched conversations:', data.conversations.length);
+    
+    return data;
   } catch (error) {
     if (error instanceof Error) {
       throw error;
@@ -325,7 +355,6 @@ export async function getUserConversations(): Promise<ConversationsResponse> {
 
 /**
  * Helper function to send a message and wait for response
- * This combines sending a message and polling for completion
  */
 export async function sendMessageAndWait(
   conversationId: string | null,
@@ -338,17 +367,20 @@ export async function sendMessageAndWait(
 
     // If no conversation ID, create a new conversation
     if (!conversationId) {
+      console.log('🆕 Creating new conversation...');
       const newConversation = await createNewConversation(query);
       finalConversationId = newConversation.conversation_id;
       messageId = newConversation.message_id;
     } else {
       // Send message to existing conversation
+      console.log('📨 Sending to existing conversation...');
       const messageResponse = await sendMessageToConversation(conversationId, query);
       finalConversationId = conversationId;
       messageId = messageResponse.message_id;
     }
 
     // Poll for completion
+    console.log('⏳ Polling for response...');
     const response = await pollForMessageCompletion(
       finalConversationId,
       messageId,

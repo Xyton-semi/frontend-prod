@@ -2,59 +2,82 @@
 
 import React, { useEffect, useState, useRef, KeyboardEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { MessageSquarePlus, FileCode, Image as ImageIcon, ArrowUp, Loader2, AlertCircle } from 'lucide-react';
+import { MessageSquarePlus, FileCode, Image as ImageIcon, ArrowUp, Loader2 } from 'lucide-react';
 import Logo from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
-import { createNewConversation } from '@/utils/conversation';
 
-export default function WelcomePage() {
+export default function WelcomePageFixed() {
   const router = useRouter();
   const [userName, setUserName] = useState('User');
+  const [userEmail, setUserEmail] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [chatInput, setChatInput] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    // Check authentication status
-    if (typeof window !== 'undefined') {
-      const idToken = sessionStorage.getItem('idToken');
-      const userEmail = sessionStorage.getItem('userEmail');
+    // Check authentication on mount AND when storage changes
+    const checkAuth = () => {
+      if (typeof window === 'undefined') return;
       
-      if (idToken && userEmail) {
+      const storedEmail = sessionStorage.getItem('userEmail');
+      const storedName = sessionStorage.getItem('userName');
+      
+      // console.log('🔍 Checking auth on welcome page:');
+      // console.log('Email:', storedEmail);
+      // console.log('Name:', storedName);
+      
+      if (storedEmail && storedEmail.trim().length > 0) {
         setIsAuthenticated(true);
+        setUserEmail(storedEmail);
         
-        // Get user name
-        const storedName = sessionStorage.getItem('userName') || 'User';
-        const storedEmail = sessionStorage.getItem('userEmail') || '';
-        
-        if (storedName && !isUuid(storedName) && storedName !== 'User') {
+        if (storedName && storedName !== 'User') {
           setUserName(storedName);
-        } else if (storedEmail) {
+        } else {
+          // Extract name from email
           const emailName = storedEmail.split('@')[0];
           const parts = emailName.split(/[._\-]/).map(p => p.charAt(0).toUpperCase() + p.slice(1));
           setUserName(parts.join(' '));
         }
+        
+        console.log('✅ User authenticated:', storedEmail);
       } else {
         setIsAuthenticated(false);
+        setUserName('User');
+        console.log('❌ Not authenticated');
       }
-    }
-  }, []);
+    };
 
-  const isUuid = (s: string) => {
-    return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(s);
-  };
+    // Check on mount
+    checkAuth();
+
+    // Also check when storage changes (in case user logs in in another tab)
+    window.addEventListener('storage', checkAuth);
+    
+    // Check every second for 5 seconds (in case page loaded before login completed)
+    const intervals = [
+      setTimeout(checkAuth, 500),
+      setTimeout(checkAuth, 1000),
+      setTimeout(checkAuth, 2000),
+      setTimeout(checkAuth, 3000),
+    ];
+
+    return () => {
+      window.removeEventListener('storage', checkAuth);
+      intervals.forEach(clearTimeout);
+    };
+  }, []);
 
   const handleStartChat = async (e?: React.FormEvent) => {
     e?.preventDefault();
     
     if (!chatInput.trim() || isComposing || isLoading) return;
 
-    // Check authentication before attempting to create conversation
+    // Check authentication
     if (!isAuthenticated) {
-      setError('Please sign in to start a conversation');
+      router.push('/login');
       return;
     }
     
@@ -62,6 +85,9 @@ export default function WelcomePage() {
     setError(null);
 
     try {
+      // Import conversation utilities dynamically
+      const { createNewConversation } = await import('@/utils/conversation');
+      
       // Create new conversation with initial message
       const result = await createNewConversation(chatInput.trim());
       
@@ -74,13 +100,6 @@ export default function WelcomePage() {
     } catch (err) {
       console.error('Failed to start conversation:', err);
       setError(err instanceof Error ? err.message : 'Failed to start conversation');
-      
-      // If auth error, suggest login
-      if (err instanceof Error && err.message.includes('log in')) {
-        setTimeout(() => {
-          router.push('/login');
-        }, 2000);
-      }
     } finally {
       setIsLoading(false);
     }
@@ -104,22 +123,24 @@ export default function WelcomePage() {
     }
   };
 
-  const handleLogin = () => {
-    router.push('/login');
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-red-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 flex flex-col transition-colors">
       {/* Header */}
       <div className="w-full px-6 py-4 flex justify-between items-center">
         <Logo className="text-2xl" />
         <div className="flex items-center gap-4">
-          <button
-            onClick={handleLogin}
-            className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 font-medium transition-colors"
-          >
-            Sign In
-          </button>
+          {!isAuthenticated ? (
+            <button
+              onClick={() => router.push('/login')}
+              className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+            >
+              Sign In
+            </button>
+          ) : (
+            <div className="text-sm text-gray-600 dark:text-gray-400">
+              {userEmail}
+            </div>
+          )}
           <ThemeToggle />
         </div>
       </div>
@@ -137,13 +158,15 @@ export default function WelcomePage() {
             </p>
           </div>
 
-          {/* Authentication Warning (if not logged in) */}
+          {/* Warning Banner (if not authenticated) */}
           {!isAuthenticated && (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                <div className="flex items-center gap-3">
-                  <AlertCircle size={20} className="text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
-                  <div className="text-left">
+                <div className="flex items-start gap-3">
+                  <div className="flex-shrink-0 w-5 h-5 rounded-full bg-yellow-400 dark:bg-yellow-600 flex items-center justify-center mt-0.5">
+                    <span className="text-white text-xs font-bold">!</span>
+                  </div>
+                  <div className="flex-1 text-left">
                     <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
                       Please sign in to start a conversation
                     </p>
@@ -152,8 +175,8 @@ export default function WelcomePage() {
                     </p>
                   </div>
                   <button
-                    onClick={handleLogin}
-                    className="ml-auto px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+                    onClick={() => router.push('/login')}
+                    className="px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
                   >
                     Sign In
                   </button>
@@ -196,7 +219,7 @@ export default function WelcomePage() {
                   type="submit"
                   disabled={!chatInput.trim() || isLoading || !isAuthenticated}
                   className="absolute right-3 bottom-3 p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                  title={isAuthenticated ? "Send message (Enter)" : "Please sign in first"}
+                  title="Send message (Enter)"
                 >
                   {isLoading ? (
                     <Loader2 size={18} className="animate-spin" />
