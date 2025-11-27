@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { FileCheck } from 'lucide-react';
 import RequirementsModal from './RequirementsModal';
-import { parseCSV } from '@/utils/csvParser';
-import { shuffleArray, randomizeNumericValue, randomizePriority, randomizeDifficulty } from '@/utils/randomizeData';
+import { parseCSV } from '@/utils/data';
+import { shuffleArray, randomizeNumericValue, randomizePriority, randomizeDifficulty } from '@/utils/data';
 
 interface RequirementsRow {
   'Spec Category': string;

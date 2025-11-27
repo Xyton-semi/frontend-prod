@@ -2,31 +2,43 @@
 
 import React, { useEffect, useState, useRef, KeyboardEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { MessageSquarePlus, FileCode, Image as ImageIcon, ArrowUp, Loader2 } from 'lucide-react';
+import { MessageSquarePlus, FileCode, Image as ImageIcon, ArrowUp, Loader2, AlertCircle } from 'lucide-react';
 import Logo from '@/components/ui/Logo';
 import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { createNewConversation } from '@/utils/conversation';
 
 export default function WelcomePage() {
   const router = useRouter();
   const [userName, setUserName] = useState('User');
   const [chatInput, setChatInput] = useState('');
   const [isComposing, setIsComposing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    // Get user name from sessionStorage
+    // Check authentication status
     if (typeof window !== 'undefined') {
-      const storedName = sessionStorage.getItem('userName') || 'User';
-      const storedEmail = sessionStorage.getItem('userEmail') || '';
+      const idToken = sessionStorage.getItem('idToken');
+      const userEmail = sessionStorage.getItem('userEmail');
       
-      // If we have a name that's not a UUID, use it
-      if (storedName && !isUuid(storedName) && storedName !== 'User') {
-        setUserName(storedName);
-      } else if (storedEmail) {
-        // Extract name from email
-        const emailName = storedEmail.split('@')[0];
-        const parts = emailName.split(/[._\-]/).map(p => p.charAt(0).toUpperCase() + p.slice(1));
-        setUserName(parts.join(' '));
+      if (idToken && userEmail) {
+        setIsAuthenticated(true);
+        
+        // Get user name
+        const storedName = sessionStorage.getItem('userName') || 'User';
+        const storedEmail = sessionStorage.getItem('userEmail') || '';
+        
+        if (storedName && !isUuid(storedName) && storedName !== 'User') {
+          setUserName(storedName);
+        } else if (storedEmail) {
+          const emailName = storedEmail.split('@')[0];
+          const parts = emailName.split(/[._\-]/).map(p => p.charAt(0).toUpperCase() + p.slice(1));
+          setUserName(parts.join(' '));
+        }
+      } else {
+        setIsAuthenticated(false);
       }
     }
   }, []);
@@ -35,16 +47,43 @@ export default function WelcomePage() {
     return /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(s);
   };
 
-  const handleStartChat = (e?: React.FormEvent) => {
+  const handleStartChat = async (e?: React.FormEvent) => {
     e?.preventDefault();
     
-    if (!chatInput.trim() || isComposing) return;
+    if (!chatInput.trim() || isComposing || isLoading) return;
+
+    // Check authentication before attempting to create conversation
+    if (!isAuthenticated) {
+      setError('Please sign in to start a conversation');
+      return;
+    }
     
-    // Store the initial message in sessionStorage
-    sessionStorage.setItem('initialMessage', chatInput.trim());
-    
-    // Navigate to dashboard with URL parameter
-    router.push('/?from=welcome');
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Create new conversation with initial message
+      const result = await createNewConversation(chatInput.trim());
+      
+      // Store conversation ID for dashboard
+      sessionStorage.setItem('activeConversationId', result.conversation_id);
+      sessionStorage.setItem('initialQuery', chatInput.trim());
+      
+      // Navigate to dashboard
+      router.push('/?from=welcome');
+    } catch (err) {
+      console.error('Failed to start conversation:', err);
+      setError(err instanceof Error ? err.message : 'Failed to start conversation');
+      
+      // If auth error, suggest login
+      if (err instanceof Error && err.message.includes('log in')) {
+        setTimeout(() => {
+          router.push('/login');
+        }, 2000);
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -56,6 +95,7 @@ export default function WelcomePage() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setChatInput(e.target.value);
+    setError(null);
     
     // Auto-resize textarea
     if (textareaRef.current) {
@@ -97,6 +137,40 @@ export default function WelcomePage() {
             </p>
           </div>
 
+          {/* Authentication Warning (if not logged in) */}
+          {!isAuthenticated && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+                <div className="flex items-center gap-3">
+                  <AlertCircle size={20} className="text-yellow-600 dark:text-yellow-400 flex-shrink-0" />
+                  <div className="text-left">
+                    <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                      Please sign in to start a conversation
+                    </p>
+                    <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
+                      You need to be authenticated to use the AI assistant.
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleLogin}
+                    className="ml-auto px-4 py-2 bg-yellow-600 hover:bg-yellow-700 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+                  >
+                    Sign In
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Error Message */}
+          {error && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-600 dark:text-red-400">
+                {error}
+              </div>
+            </div>
+          )}
+
           {/* Chat Input Card */}
           <div className="mt-12 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200">
             <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4 transition-all hover:shadow-2xl">
@@ -113,27 +187,38 @@ export default function WelcomePage() {
                   onKeyDown={handleKeyDown}
                   onCompositionStart={() => setIsComposing(true)}
                   onCompositionEnd={() => setIsComposing(false)}
-                  placeholder="Describe your circuit design or paste a netlist..."
+                  placeholder={isAuthenticated ? "Describe your circuit design or paste a netlist..." : "Please sign in to start..."}
+                  disabled={isLoading || !isAuthenticated}
                   rows={1}
-                  className="w-full px-4 py-3 pr-12 text-sm border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none overflow-hidden max-h-[120px] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
+                  className="w-full px-4 py-3 pr-12 text-sm border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none overflow-hidden max-h-[120px] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 />
                 <button
                   type="submit"
-                  disabled={!chatInput.trim()}
+                  disabled={!chatInput.trim() || isLoading || !isAuthenticated}
                   className="absolute right-3 bottom-3 p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
-                  title="Send message (Enter)"
+                  title={isAuthenticated ? "Send message (Enter)" : "Please sign in first"}
                 >
-                  <ArrowUp size={18} />
+                  {isLoading ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <ArrowUp size={18} />
+                  )}
                 </button>
               </form>
 
               {/* Action Buttons */}
               <div className="flex items-center justify-center gap-4 pt-2">
-                <button className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                <button 
+                  disabled={isLoading || !isAuthenticated}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   <FileCode size={16} />
                   <span>Attach Netlist</span>
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                <button 
+                  disabled={isLoading || !isAuthenticated}
+                  className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   <ImageIcon size={16} />
                   <span>Attach Image</span>
                 </button>

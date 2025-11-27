@@ -5,7 +5,7 @@ import PinBoundaryPanel from './PinBoundaryPanel';
 import RequirementsPanel from './RequirementsPanel';
 import PinBoundaryModal from './PinBoundaryModal';
 import RequirementsModal from './RequirementsModal';
-import { parseCSV } from '../../utils/csvParser';
+import { parseCSV } from '@/utils/data';
 
 interface CanvasAreaProps {
   leftSidebarOpen: boolean;

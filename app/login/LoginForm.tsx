@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { LogIn, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { login } from '@/utils/auth';
 
 interface FormData {
   email: string;
@@ -73,34 +74,19 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      // Call AWS backend API directly
+      const response = await login({
+        email: formData.email,
+        password: formData.password,
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Login failed');
-      }
 
       setSubmitStatus('success');
       
       // Store tokens and user info in sessionStorage
-      if (data.tokens) {
-        sessionStorage.setItem('accessToken', data.tokens.accessToken);
-        sessionStorage.setItem('refreshToken', data.tokens.refreshToken);
-        sessionStorage.setItem('idToken', data.tokens.idToken);
-      }
-
-      // Store user info
-      if (data.user) {
-        sessionStorage.setItem('userName', data.user.name);
-        sessionStorage.setItem('userEmail', data.user.email);
-      }
+      sessionStorage.setItem('accessToken', response.accessToken);
+      sessionStorage.setItem('refreshToken', response.refreshToken);
+      sessionStorage.setItem('userName', response.user.name);
+      sessionStorage.setItem('userEmail', response.user.email);
       
       // Redirect to welcome page after 1 second
       setTimeout(() => {

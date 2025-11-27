@@ -1,11 +1,19 @@
-import React, { useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import { PanelRightClose, Settings, MessageSquarePlus } from 'lucide-react';
 import SchematicView from './views/SchematicView';
 import TestbenchView from './views/TestbenchView';
-import ChatInput from './ChatInput';
-import NewChatInput from './NewChatInput';
+import EnhancedChatInput from './EnhancedChatInput';
+import ChatDisplay from './ChatDisplay';
 
 type TabType = 'schematic' | 'testbench' | 'layout';
+
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+  status?: 'sending' | 'processing' | 'complete' | 'error';
+}
 
 interface RightConfigPanelProps {
   isOpen: boolean;
@@ -14,8 +22,19 @@ interface RightConfigPanelProps {
   setActiveTab: (tab: TabType) => void;
 }
 
-const RightConfigPanel: React.FC<RightConfigPanelProps> = ({ isOpen, setIsOpen, activeTab, setActiveTab }) => {
+const RightConfigPanel: React.FC<RightConfigPanelProps> = ({ 
+  isOpen, 
+  setIsOpen, 
+  activeTab, 
+  setActiveTab 
+}) => {
+  // Conversation state
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  
   const chatInputRef = useRef<HTMLDivElement>(null);
+  const chatDisplayRef = useRef<HTMLDivElement>(null);
 
   const scrollToChatInput = () => {
     chatInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -26,15 +45,37 @@ const RightConfigPanel: React.FC<RightConfigPanelProps> = ({ isOpen, setIsOpen, 
     }, 500);
   };
 
+  const handleNewChat = () => {
+    // Clear current conversation
+    setConversationId(null);
+    setMessages([]);
+    scrollToChatInput();
+  };
+
+  const handleConversationCreated = (newConversationId: string) => {
+    setConversationId(newConversationId);
+    console.log('New conversation created:', newConversationId);
+  };
+
+  const handleMessageSent = (message: ChatMessage) => {
+    setMessages(prev => [...prev, message]);
+    setIsProcessing(true);
+  };
+
+  const handleResponseReceived = (message: ChatMessage) => {
+    setMessages(prev => [...prev, message]);
+    setIsProcessing(false);
+  };
+
   return (
     <div className={`${isOpen ? 'w-96' : 'w-0'} flex-shrink-0 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col transition-all duration-300 ease-in-out overflow-hidden`}>
       <div className="p-6 flex-shrink-0">
           <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Configuration</h2>
               <div className="flex items-center gap-2">
-                {/* New Chat button - more prominent */}
+                {/* New Chat button */}
                 <button 
-                  onClick={scrollToChatInput} 
+                  onClick={handleNewChat} 
                   className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
                   title="Start new chat"
                   aria-label="Start new chat"
@@ -72,7 +113,7 @@ const RightConfigPanel: React.FC<RightConfigPanelProps> = ({ isOpen, setIsOpen, 
       </div>
 
       {/* Tab Content Area */}
-      <div className="flex-1 overflow-y-auto px-6 pb-6 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto px-6 pb-6 scrollbar-thin" ref={chatDisplayRef}>
         {activeTab === 'schematic' && <SchematicView />}
         {activeTab === 'testbench' && <TestbenchView />}
         {activeTab === 'layout' && (
@@ -83,10 +124,19 @@ const RightConfigPanel: React.FC<RightConfigPanelProps> = ({ isOpen, setIsOpen, 
         )}
       </div>
       
+      {/* Chat Display */}
+      <div className="flex-1 overflow-hidden flex flex-col min-h-0 border-t border-gray-200 dark:border-gray-700">
+        <ChatDisplay messages={messages} isLoading={isProcessing} />
+      </div>
+
       {/* Chat Input with ref */}
       <div ref={chatInputRef}>
-        <NewChatInput />
-        {/* <ChatInput /> */}
+        <EnhancedChatInput 
+          conversationId={conversationId}
+          onConversationCreated={handleConversationCreated}
+          onMessageSent={handleMessageSent}
+          onResponseReceived={handleResponseReceived}
+        />
       </div>
     </div>
   );

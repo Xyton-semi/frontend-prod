@@ -4,33 +4,48 @@ import React, { useState, useRef, KeyboardEvent } from 'react';
 import { 
   Code, 
   Image as ImageIcon, 
-  SendHorizontal, // Swapped ArrowUp for a more modern 'Send' icon
+  SendHorizontal,
   AlertCircle, 
-  Loader2, 
-  Paperclip 
+  Loader2,
+  CheckCircle2
 } from 'lucide-react';
-import { sendMessage } from '@/utils/auth';
+import { 
+  sendMessageAndWait, 
+  MessageStatus 
+} from '@/utils/conversation';
 
-interface ChatInputProps {
-  onSubmit?: (message: string) => void;
+interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
+  status?: 'sending' | 'processing' | 'complete' | 'error';
+}
+
+interface EnhancedChatInputProps {
+  conversationId: string | null;
+  onConversationCreated?: (conversationId: string) => void;
+  onMessageSent?: (message: ChatMessage) => void;
+  onResponseReceived?: (message: ChatMessage) => void;
   placeholder?: string;
-  conversationId?: string;
 }
 
 /**
- * NewChatInput
- * Redesigned chat interface for Xyton-Semi.
- * Features a modern, contained aesthetic with strong emphasis on the company red.
+ * Enhanced Chat Input with full conversation management
+ * Handles creating conversations, sending messages, and polling for responses
  */
-const NewChatInput: React.FC<ChatInputProps> = ({ 
-  onSubmit,
-  placeholder = "Ask Xyton AI about your design...", // Slightly updated default placeholder
-  conversationId = "5f66002a-6690-48ae-b184-716034f36855"
+const EnhancedChatInput: React.FC<EnhancedChatInputProps> = ({ 
+  conversationId,
+  onConversationCreated,
+  onMessageSent,
+  onResponseReceived,
+  placeholder = "Ask Xyton AI about your design...",
 }) => {
   const [input, setInput] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [progressStatus, setProgressStatus] = useState<string>('');
   
   // Refs
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -42,27 +57,71 @@ const NewChatInput: React.FC<ChatInputProps> = ({
     
     if (!input.trim() || isComposing || isLoading) return;
 
+    const userMessage = input.trim();
     setIsLoading(true);
     setError(null);
+    setProgressStatus('Sending message...');
 
     try {
-      // API Integration
-      const response = await sendMessage(conversationId, input.trim());
-      console.log('API Response:', response);
-      
-      if (onSubmit) {
-        onSubmit(input);
+      // Create user message
+      const userMessageObj: ChatMessage = {
+        id: `user-${Date.now()}`,
+        role: 'user',
+        content: userMessage,
+        timestamp: Date.now(),
+        status: 'sending',
+      };
+
+      // Notify parent of user message
+      if (onMessageSent) {
+        onMessageSent(userMessageObj);
       }
-      
+
+      // Clear input immediately
       setInput('');
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
+
+      // Send message and wait for response
+      const result = await sendMessageAndWait(
+        conversationId,
+        userMessage,
+        (status: MessageStatus) => {
+          // Update progress status
+          if (status.status === 'Processing.....') {
+            setProgressStatus('Processing your request...');
+          }
+        }
+      );
+
+      // If this was a new conversation, notify parent
+      if (!conversationId && onConversationCreated) {
+        onConversationCreated(result.conversationId);
+      }
+
+      // Create assistant message
+      const assistantMessage: ChatMessage = {
+        id: result.messageId,
+        role: 'assistant',
+        content: result.response.message,
+        timestamp: parseInt(result.response.timestamp),
+        status: 'complete',
+      };
+
+      // Notify parent of response
+      if (onResponseReceived) {
+        onResponseReceived(assistantMessage);
+      }
+
+      setProgressStatus('');
       
     } catch (err) {
       console.error('Failed to send message:', err);
       setError(err instanceof Error ? err.message : 'Failed to send message');
+      setProgressStatus('');
       
+      // If authentication error, redirect to login
       if (err instanceof Error && err.message.includes('log in')) {
         setTimeout(() => {
           window.location.href = '/login';
@@ -87,7 +146,7 @@ const NewChatInput: React.FC<ChatInputProps> = ({
     // Auto-resize
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`; // Increased max-height slightly
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`;
     }
   };
 
@@ -95,9 +154,7 @@ const NewChatInput: React.FC<ChatInputProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       console.log('File selected:', file.name);
-      if (onSubmit) {
-        onSubmit(`[Attachment: ${file.name}]`); // Distinct format for attachments
-      }
+      // TODO: Implement file upload
     }
   };
 
@@ -111,7 +168,15 @@ const NewChatInput: React.FC<ChatInputProps> = ({
         </div>
       )}
 
-      {/* Main Input Container - "Card" Style */}
+      {/* Progress Status */}
+      {progressStatus && !error && (
+        <div className="mb-3 flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg text-sm text-blue-600 dark:text-blue-400 animate-in fade-in slide-in-from-bottom-2">
+          <Loader2 size={16} className="animate-spin" />
+          <span>{progressStatus}</span>
+        </div>
+      )}
+
+      {/* Main Input Container */}
       <div 
         className={`
           relative flex flex-col gap-2 p-3 
@@ -155,7 +220,7 @@ const NewChatInput: React.FC<ChatInputProps> = ({
                 group flex items-center gap-1.5 px-3 py-1.5 rounded-full
                 text-xs font-medium text-gray-500 dark:text-gray-400
                 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400
-                transition-colors
+                transition-colors disabled:opacity-50 disabled:cursor-not-allowed
               "
               title="Upload Netlist (.sp, .cir, .net)"
             >
@@ -171,7 +236,7 @@ const NewChatInput: React.FC<ChatInputProps> = ({
                 group flex items-center gap-1.5 px-3 py-1.5 rounded-full
                 text-xs font-medium text-gray-500 dark:text-gray-400
                 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400
-                transition-colors
+                transition-colors disabled:opacity-50 disabled:cursor-not-allowed
               "
               title="Upload Image"
             >
@@ -180,7 +245,7 @@ const NewChatInput: React.FC<ChatInputProps> = ({
             </button>
           </div>
 
-          {/* Send Button - Strong Xyton Red */}
+          {/* Send Button */}
           <button
             onClick={() => handleSubmit()}
             disabled={!input.trim() || isLoading}
@@ -220,7 +285,7 @@ const NewChatInput: React.FC<ChatInputProps> = ({
         disabled={isLoading}
       />
       
-      {/* Footer Info (Optional) */}
+      {/* Footer Info */}
       <div className="mt-2 text-center">
         <p className="text-[10px] text-gray-400 dark:text-gray-500">
           Xyton AI can make mistakes. Please verify generated netlists.
@@ -230,4 +295,4 @@ const NewChatInput: React.FC<ChatInputProps> = ({
   );
 };
 
-export default NewChatInput;
+export default EnhancedChatInput;

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { PanelLeftClose, PlusSquare, Search, MoreVertical, LucideIcon } from 'lucide-react';
 import Logo from '../ui/Logo'
 import Avatar from '../ui/Avatar';
-import { getInitials } from '@/utils/jwt';
+import { getInitials } from '@/utils/auth';
 
 interface SidebarItemProps {
   icon: LucideIcon;

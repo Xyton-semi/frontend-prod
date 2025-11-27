@@ -1,8 +1,8 @@
 "use client"
 
 import React, { useEffect, useState } from 'react';
-import { parseCSV } from '@/utils/csvParser';
-import { shuffleArray, randomizeNumericValue, randomizeBoolean } from '@/utils/randomizeData';
+import { parseCSV } from '@/utils/data';
+import { shuffleArray, randomizeNumericValue, randomizeBoolean } from '@/utils/data';
 
 const defaultCSVData = `RowType,Name,PadConn,Direction,Function,Definition / Notes,VoltageMin,VoltageMax,Units,ESD_HBM_kV,ESD_CDM_V,Value,ValueUnits,Comments
 Pin,VIN,Y,Input,Input supply to LDO,Recommended operating range from datasheet ROC table,1.6,6,V,2,0.75,,,Also see Absolute Maximum Ratings: -0.3 V to 6.5 V
