@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { UserPlus, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { register } from '@/utils/auth';
 
 interface FormData {
   name: string;
@@ -107,33 +108,20 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch('/api/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-          organization: formData.organization,
-          role: formData.role,
-          description: formData.description,
-        }),
+      // Call AWS backend API directly
+      const response = await register({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        organization: formData.organization,
+        role: formData.role,
+        description: formData.description,
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Registration failed');
-      }
 
       setSubmitStatus('success');
       
-      // If user is confirmed and has tokens (auto-login happened), store them
-      // Otherwise, redirect to login page
-      if (data.requiresVerification) {
-        // Redirect to login with message about verification
+      // Redirect based on verification requirement
+      if (response.requiresVerification) {
         setTimeout(() => {
           if (onSwitchToLogin) {
             onSwitchToLogin();
@@ -142,8 +130,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
           }
         }, 2000);
       } else {
-        // User is confirmed, redirect to dashboard
-        // If backend sync is needed, it will happen on first login
         setTimeout(() => {
           router.push('/login?message=registration-success');
         }, 2000);
@@ -173,12 +159,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
           <CheckCircle2 size={18} className="text-green-600 dark:text-green-400 flex-shrink-0" />
           <div>
             <p className="text-sm font-medium text-green-800 dark:text-green-200">Registration successful!</p>
-            <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">
-              {formData.email.includes('verification') 
-                ? 'Please check your email to verify your account.'
-                : 'Redirecting to login...'
-              }
-            </p>
+            <p className="text-xs text-green-600 dark:text-green-400 mt-0.5">Redirecting to login...</p>
           </div>
         </div>
       )}

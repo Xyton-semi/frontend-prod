@@ -1,8 +1,8 @@
 "use client"
 
 import React, { useEffect, useState } from 'react';
-import { parseCSV } from '@/utils/csvParser';
-import { shuffleArray, randomizeNumericValue, randomizePriority, randomizeDifficulty } from '@/utils/randomizeData';
+import { parseCSV } from '@/utils/data';
+import { shuffleArray, randomizeNumericValue, randomizePriority, randomizeDifficulty } from '@/utils/data';
 
 const defaultCSVData = `Spec Category,Parameter,Symbol,Definition / Test Condition,User Target Min,User Target Typ,User Target Max,Actual Min,Actual Typ,Actual Max,Units,Physical Trade-off / Sensitivity,Priority,Difficulty,Comments / Pin Mapping,Specification Source
 DC Operating,VIN range,VIN_OP,VIN operating range over which all datasheet specifications are guaranteed,1.6,,6,,,,V,Higher VIN increases FET stress but improves dropout margin,H,M,Pin VIN; see Recommended Operating Conditions,User

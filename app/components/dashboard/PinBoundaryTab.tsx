@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { FileSpreadsheet } from 'lucide-react';
 import PinBoundaryModal from './PinBoundaryModal';
-import { parseCSV, type CSVRow } from '@/utils/csvParser';
-import { shuffleArray, randomizeNumericValue, randomizeBoolean } from '@/utils/randomizeData';
+import { parseCSV, type CSVRow } from '@/utils/data';
+import { shuffleArray, randomizeNumericValue, randomizeBoolean } from '@/utils/data';
 
 interface PinBoundaryTabProps {
   csvFilePath?: string;

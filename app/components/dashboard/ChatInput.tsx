@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, KeyboardEvent } from 'react';
 import { Code, Image as ImageIcon, ArrowUp, AlertCircle, Loader2 } from 'lucide-react';
-import { sendMessage } from '@/utils/api-client';
+import { sendMessage } from '@/utils/auth';
 
 interface ChatInputProps {
   onSubmit?: (message: string) => void;

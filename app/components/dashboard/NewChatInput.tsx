@@ -9,7 +9,7 @@ import {
   Loader2, 
   Paperclip 
 } from 'lucide-react';
-import { sendMessage } from '@/utils/api-client';
+import { sendMessage } from '@/utils/auth';
 
 interface ChatInputProps {
   onSubmit?: (message: string) => void;
