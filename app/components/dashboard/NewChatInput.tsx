@@ -9,7 +9,7 @@ import {
   Loader2, 
   Paperclip 
 } from 'lucide-react';
-import { sendMessage } from '@/utils/auth';
+import { sendMessageAndWait } from '@/utils/conversation';
 
 interface ChatInputProps {
   onSubmit?: (message: string) => void;
@@ -47,7 +47,7 @@ const NewChatInput: React.FC<ChatInputProps> = ({
 
     try {
       // API Integration
-      const response = await sendMessage(conversationId, input.trim());
+      const response = await sendMessageAndWait(conversationId, input.trim());
       console.log('API Response:', response);
       
       if (onSubmit) {

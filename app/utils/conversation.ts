@@ -1,6 +1,7 @@
 /**
- * Conversation API - WITH Authentication Headers
- * Your API returns 401, so it DOES need auth tokens
+ * Conversation API - Based on Actual API Documentation
+ * NO authentication headers needed (per API docs)
+ * Extended polling timeout for long-running AI models
  */
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://7j7y34kk48.execute-api.us-east-1.amazonaws.com/v1';
@@ -40,28 +41,11 @@ export interface MessageStatus {
 }
 
 // ============================================================================
-// AUTHENTICATION HELPERS
+// USER EMAIL MANAGEMENT
 // ============================================================================
 
 /**
- * Get authentication token (tries multiple token types)
- */
-function getAuthToken(): string | null {
-  if (typeof window === 'undefined') return null;
-  
-  // Try different token types in order of preference
-  const idToken = sessionStorage.getItem('idToken');
-  const accessToken = sessionStorage.getItem('accessToken');
-  
-  // Return the first non-empty token
-  if (idToken && idToken.trim() !== '') return idToken;
-  if (accessToken && accessToken.trim() !== '') return accessToken;
-  
-  return null;
-}
-
-/**
- * Get user email
+ * Get user email from sessionStorage
  */
 function getUserEmail(): string | null {
   if (typeof window === 'undefined') return null;
@@ -69,40 +53,23 @@ function getUserEmail(): string | null {
 }
 
 /**
- * Check if user is authenticated
+ * Check if user is authenticated (has email)
  */
 export function isAuthenticated(): boolean {
   const email = getUserEmail();
-  const token = getAuthToken();
-  
-  // User is authenticated if they have email
-  // Token is optional depending on API requirements
   return !!(email && email.trim().length > 0);
 }
 
-/**
- * Get auth headers for API requests
- */
-function getAuthHeaders(): HeadersInit {
-  const token = getAuthToken();
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-  };
-  
-  // Add Authorization header if we have a token
-  if (token && token.trim() !== '') {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  
-  return headers;
-}
-
 // ============================================================================
-// API CALLS
+// API CALLS (No authentication headers per API docs)
 // ============================================================================
 
 /**
  * Create a new conversation with an initial query
+ * 
+ * API: POST /new_query
+ * Body: { "email": "user@example.com", "query": "Hello" }
+ * Response: { "message_id": "...", "conversation_id": "...", "timestamp": "..." }
  */
 export async function createNewConversation(query: string): Promise<NewConversationResponse> {
   const userEmail = getUserEmail();
@@ -112,14 +79,15 @@ export async function createNewConversation(query: string): Promise<NewConversat
   }
 
   try {
-    // console.log('📤 Creating conversation for:', userEmail);
-    
-    const headers = getAuthHeaders();
-    // console.log('Headers:', headers);
+    console.log('📤 Creating conversation for:', userEmail);
+    console.log('Query:', query);
     
     const response = await fetch(`${API_BASE_URL}/new_query`, {
       method: 'POST',
-      headers: headers,
+      headers: {
+        'Content-Type': 'application/json',
+        // NO Authorization header per API docs
+      },
       body: JSON.stringify({
         email: userEmail,
         query: query,
@@ -133,18 +101,16 @@ export async function createNewConversation(query: string): Promise<NewConversat
         const errorData = await response.json();
         errorMessage = errorData.message || errorData.error || errorMessage;
       } catch {
-        errorMessage = await response.text() || errorMessage;
-      }
-
-      if (response.status === 401) {
-        throw new Error('Authentication failed. Your session may have expired. Please sign in again.');
+        const text = await response.text();
+        errorMessage = text || errorMessage;
       }
 
       throw new Error(errorMessage);
     }
 
     const data = await response.json();
-    // console.log('✅ Conversation created:', data.conversation_id);
+    console.log('✅ Conversation created:', data.conversation_id);
+    console.log('Message ID:', data.message_id);
     
     return data;
   } catch (error) {
@@ -158,6 +124,10 @@ export async function createNewConversation(query: string): Promise<NewConversat
 
 /**
  * Send a message to an existing conversation
+ * 
+ * API: POST /conversation/{conversation_id}/message
+ * Body: { "query": "message", "user_id": "user@example.com" }
+ * Response: { "message_id": "...", "timestamp": "..." }
  */
 export async function sendMessageToConversation(
   conversationId: string,
@@ -170,15 +140,17 @@ export async function sendMessageToConversation(
   }
 
   try {
-    // console.log('📤 Sending message to conversation:', conversationId);
-    
-    const headers = getAuthHeaders();
+    console.log('📤 Sending message to conversation:', conversationId);
+    console.log('Query:', query);
     
     const response = await fetch(
       `${API_BASE_URL}/conversation/${conversationId}/message`,
       {
         method: 'POST',
-        headers: headers,
+        headers: {
+          'Content-Type': 'application/json',
+          // NO Authorization header per API docs
+        },
         body: JSON.stringify({
           query: query,
           user_id: userEmail,
@@ -193,18 +165,15 @@ export async function sendMessageToConversation(
         const errorData = await response.json();
         errorMessage = errorData.message || errorData.error || errorMessage;
       } catch {
-        errorMessage = await response.text() || errorMessage;
-      }
-
-      if (response.status === 401) {
-        throw new Error('Authentication failed. Please sign in again.');
+        const text = await response.text();
+        errorMessage = text || errorMessage;
       }
 
       throw new Error(errorMessage);
     }
 
     const data = await response.json();
-    // console.log('✅ Message sent:', data.message_id);
+    console.log('✅ Message sent:', data.message_id);
     
     return data;
   } catch (error) {
@@ -217,20 +186,27 @@ export async function sendMessageToConversation(
 }
 
 /**
- * Poll for message status and response
+ * Get message status and response
+ * 
+ * API: GET /conversation/{conversation_id}/message/{message_id}
+ * Response: { 
+ *   "message_id": "...", 
+ *   "status": "Processing....." | "Complete" | "Error",
+ *   "error": "",
+ *   "message": "LLM output text",
+ *   "timestamp": "..."
+ * }
  */
 export async function getMessageStatus(
   conversationId: string,
   messageId: string
 ): Promise<MessageStatus> {
   try {
-    const headers = getAuthHeaders();
-    
     const response = await fetch(
       `${API_BASE_URL}/conversation/${conversationId}/message/${messageId}`,
       {
         method: 'GET',
-        headers: headers,
+        // NO Authorization header per API docs
       }
     );
 
@@ -241,7 +217,8 @@ export async function getMessageStatus(
         const errorData = await response.json();
         errorMessage = errorData.message || errorData.error || errorMessage;
       } catch {
-        errorMessage = await response.text() || errorMessage;
+        const text = await response.text();
+        errorMessage = text || errorMessage;
       }
 
       throw new Error(errorMessage);
@@ -258,19 +235,33 @@ export async function getMessageStatus(
 
 /**
  * Poll for message completion with automatic retries
+ * 
+ * Extended timeout: 180 attempts × 2 seconds = 6 minutes max
+ * (AI models can take a while to process complex queries)
+ * 
+ * @param conversationId - The conversation ID
+ * @param messageId - The message ID to poll
+ * @param onProgress - Optional callback for progress updates
+ * @param maxAttempts - Maximum polling attempts (default: 180 = 6 minutes)
+ * @param intervalMs - Interval between polls in milliseconds (default: 2000ms = 2 seconds)
  */
 export async function pollForMessageCompletion(
   conversationId: string,
   messageId: string,
   onProgress?: (status: MessageStatus) => void,
-  maxAttempts: number = 60,
+  maxAttempts: number = 180, // 6 minutes (was 60 = 2 minutes)
   intervalMs: number = 2000
 ): Promise<MessageStatus> {
   let attempts = 0;
 
+  console.log(`⏳ Starting to poll for message ${messageId}`);
+  console.log(`Max attempts: ${maxAttempts} (${(maxAttempts * intervalMs) / 1000}s total)`);
+
   while (attempts < maxAttempts) {
     try {
       const status = await getMessageStatus(conversationId, messageId);
+      
+      console.log(`Poll attempt ${attempts + 1}/${maxAttempts}:`, status.status);
       
       // Call progress callback if provided
       if (onProgress) {
@@ -279,34 +270,43 @@ export async function pollForMessageCompletion(
 
       // Check if processing is complete
       if (status.status === 'Complete') {
-        // console.log('✅ Message processing complete');
+        console.log('✅ Message processing complete!');
+        console.log('Response:', status.message);
         return status;
       }
 
       // Check for errors
       if (status.status === 'Error') {
+        console.error('❌ Processing error:', status.error);
         throw new Error(status.error || 'Message processing failed');
       }
 
-      // Wait before next poll
+      // Still processing, wait before next poll
       await new Promise(resolve => setTimeout(resolve, intervalMs));
       attempts++;
     } catch (error) {
+      console.error(`Poll attempt ${attempts + 1} failed:`, error);
+      
       // On the last attempt, throw the error
       if (attempts >= maxAttempts - 1) {
         throw error;
       }
+      
       // Otherwise, wait and retry
       await new Promise(resolve => setTimeout(resolve, intervalMs));
       attempts++;
     }
   }
 
-  throw new Error('Polling timeout: Message took too long to process');
+  console.error('❌ Polling timeout after', attempts, 'attempts');
+  throw new Error(`Polling timeout: AI model took longer than ${(maxAttempts * intervalMs) / 60000} minutes to respond. Please try again.`);
 }
 
 /**
  * Get all conversations for the current user
+ * 
+ * API: GET /conversation?user_id=user@example.com
+ * Response: { "conversations": [ { "id": "...", "name": "...", "total_messages": 0, "created_at": "..." } ] }
  */
 export async function getUserConversations(): Promise<ConversationsResponse> {
   const userEmail = getUserEmail();
@@ -316,15 +316,13 @@ export async function getUserConversations(): Promise<ConversationsResponse> {
   }
 
   try {
-    // console.log('📥 Fetching conversations for:', userEmail);
-    
-    const headers = getAuthHeaders();
+    console.log('📥 Fetching conversations for:', userEmail);
     
     const response = await fetch(
       `${API_BASE_URL}/conversation?user_id=${encodeURIComponent(userEmail)}`,
       {
         method: 'GET',
-        headers: headers,
+        // NO Authorization header per API docs
       }
     );
 
@@ -335,14 +333,15 @@ export async function getUserConversations(): Promise<ConversationsResponse> {
         const errorData = await response.json();
         errorMessage = errorData.message || errorData.error || errorMessage;
       } catch {
-        errorMessage = await response.text() || errorMessage;
+        const text = await response.text();
+        errorMessage = text || errorMessage;
       }
 
       throw new Error(errorMessage);
     }
 
     const data = await response.json();
-    // console.log('✅ Fetched conversations:', data.conversations.length);
+    console.log('✅ Fetched conversations:', data.conversations.length);
     
     return data;
   } catch (error) {
@@ -355,6 +354,12 @@ export async function getUserConversations(): Promise<ConversationsResponse> {
 
 /**
  * Helper function to send a message and wait for response
+ * This combines sending a message and polling for completion
+ * 
+ * @param conversationId - The conversation ID (null to create new)
+ * @param query - The message to send
+ * @param onProgress - Optional callback for progress updates
+ * @returns The complete result including conversation ID, message ID, and AI response
  */
 export async function sendMessageAndWait(
   conversationId: string | null,
@@ -379,12 +384,14 @@ export async function sendMessageAndWait(
       messageId = messageResponse.message_id;
     }
 
-    // Poll for completion
-    console.log('⏳ Polling for response...');
+    // Poll for completion (with extended timeout)
+    console.log('⏳ Waiting for AI response (this may take a few minutes)...');
     const response = await pollForMessageCompletion(
       finalConversationId,
       messageId,
-      onProgress
+      onProgress,
+      180, // 6 minutes max (180 attempts × 2s)
+      2000 // Poll every 2 seconds
     );
 
     return {
