@@ -1,13 +1,22 @@
 /**
  * Consolidated Authentication & API Client
- * SECURITY IMPROVEMENTS:
- * - Never logs passwords
- * - Validates responses properly
- * - Handles authentication errors correctly
- * - Prevents password exposure in console/network logs
+ * Enhanced with better debugging and flexible token parsing
  */
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://7j7y34kk48.execute-api.us-east-1.amazonaws.com/v1';
+
+// Enable debug logging (set to false in production)
+const DEBUG_MODE = true;
+
+function debugLog(message: string, data?: any) {
+  if (DEBUG_MODE) {
+    if (data !== undefined) {
+      console.log(`[Auth Debug] ${message}`, data);
+    } else {
+      console.log(`[Auth Debug] ${message}`);
+    }
+  }
+}
 
 // ============================================================================
 // TOKEN MANAGEMENT
@@ -145,34 +154,70 @@ function validateEmail(email: string): boolean {
 }
 
 /**
- * Validate password requirements
+ * Extract tokens from various response formats
+ * Handles multiple API response structures flexibly
  */
-function validatePassword(password: string): { valid: boolean; message?: string } {
-  if (password.length < 8) {
-    return { valid: false, message: 'Password must be at least 8 characters long' };
-  }
+function extractTokensFromResponse(data: any): { accessToken: string; refreshToken: string; idToken: string } | null {
+  debugLog('Attempting to extract tokens from response structure');
   
-  // Check for at least one uppercase letter
-  if (!/[A-Z]/.test(password)) {
-    return { valid: false, message: 'Password must contain at least one uppercase letter' };
-  }
+  // Check if data is wrapped in a data property
+  const responseData = data.data || data;
   
-  // Check for at least one lowercase letter
-  if (!/[a-z]/.test(password)) {
-    return { valid: false, message: 'Password must contain at least one lowercase letter' };
+  // Try to find tokens in various formats
+  const accessToken = 
+    responseData.access_token || 
+    responseData.accessToken || 
+    responseData.AccessToken ||
+    responseData.tokens?.access_token ||
+    responseData.tokens?.accessToken ||
+    responseData.authenticationResult?.AccessToken ||
+    responseData.AuthenticationResult?.AccessToken ||
+    '';
+    
+  const refreshToken = 
+    responseData.refresh_token || 
+    responseData.refreshToken || 
+    responseData.RefreshToken ||
+    responseData.tokens?.refresh_token ||
+    responseData.tokens?.refreshToken ||
+    responseData.authenticationResult?.RefreshToken ||
+    responseData.AuthenticationResult?.RefreshToken ||
+    '';
+    
+  const idToken = 
+    responseData.id_token || 
+    responseData.idToken || 
+    responseData.IdToken ||
+    responseData.token ||
+    responseData.tokens?.id_token ||
+    responseData.tokens?.idToken ||
+    responseData.authenticationResult?.IdToken ||
+    responseData.AuthenticationResult?.IdToken ||
+    '';
+
+  debugLog('Token extraction results:', {
+    hasAccessToken: !!accessToken,
+    hasRefreshToken: !!refreshToken,
+    hasIdToken: !!idToken,
+    accessTokenLength: accessToken?.length || 0,
+    idTokenLength: idToken?.length || 0
+  });
+
+  // We need at least an ID token for authentication
+  if (!idToken) {
+    console.error('No ID token found in response. Response structure:', Object.keys(responseData));
+    return null;
   }
-  
-  // Check for at least one number
-  if (!/[0-9]/.test(password)) {
-    return { valid: false, message: 'Password must contain at least one number' };
-  }
-  
-  return { valid: true };
+
+  return {
+    accessToken: accessToken || idToken, // Fallback to idToken if no accessToken
+    refreshToken: refreshToken || '',
+    idToken: idToken
+  };
 }
 
 /**
  * Login to AWS backend
- * SECURITY: Password is never logged and sent securely to backend
  */
 export async function login(params: LoginParams): Promise<LoginResponse> {
   // Validate inputs client-side
@@ -185,13 +230,12 @@ export async function login(params: LoginParams): Promise<LoginResponse> {
   }
 
   try {
-    // SECURITY: Create request payload (password will be sent, but never logged)
     const requestBody = {
       username: params.email,
       password: params.password,
     };
 
-    console.log('Attempting login for:', params.email); // Only log email, never password
+    debugLog('Attempting login for:', params.email);
 
     const response = await fetch(`${API_BASE_URL}/signin`, {
       method: 'POST',
@@ -201,15 +245,17 @@ export async function login(params: LoginParams): Promise<LoginResponse> {
       body: JSON.stringify(requestBody),
     });
 
+    debugLog('Login response status:', response.status);
+
     // Handle non-OK responses
     if (!response.ok) {
       let errorMessage = 'Login failed';
       
       try {
         const errorData = await response.json();
+        debugLog('Error response data:', errorData);
         errorMessage = errorData.message || errorData.error || errorMessage;
       } catch {
-        // If JSON parsing fails, try text
         const errorText = await response.text();
         if (errorText) {
           errorMessage = errorText;
@@ -231,28 +277,43 @@ export async function login(params: LoginParams): Promise<LoginResponse> {
     }
 
     const data = await response.json();
-    console.log('Login response received (tokens hidden for security)');
+    debugLog('Login response received (tokens hidden for security)');
+    
+    // Log response structure without sensitive data
+    const responseStructure = Object.keys(data).reduce((acc, key) => {
+      if (key.toLowerCase().includes('token') || key.toLowerCase().includes('password')) {
+        acc[key] = '[HIDDEN]';
+      } else {
+        acc[key] = typeof data[key];
+      }
+      return acc;
+    }, {} as any);
+    debugLog('Response structure:', responseStructure);
 
-    // Validate response structure
-    const tokens = {
-      accessToken: data.access_token || data.accessToken || data.AccessToken || '',
-      refreshToken: data.refresh_token || data.refreshToken || data.RefreshToken || '',
-      idToken: data.id_token || data.idToken || data.IdToken || data.token || '',
-    };
+    // Extract tokens using flexible parser
+    const tokens = extractTokensFromResponse(data);
+    
+    if (!tokens) {
+      console.error('Failed to extract tokens from response');
+      console.error('Available fields in response:', Object.keys(data));
+      throw new Error('Authentication failed - unable to extract tokens from server response');
+    }
 
-    // Ensure we have all required tokens
-    if (!tokens.accessToken || !tokens.idToken) {
-      console.error('Invalid token response from server');
-      throw new Error('Authentication failed - invalid server response');
+    // Validate we have the minimum required token
+    if (!tokens.idToken) {
+      console.error('No ID token found after extraction');
+      throw new Error('Authentication failed - no ID token received');
     }
 
     // Extract user info from token
     const userInfo = getUserFromToken(tokens.idToken);
     
     if (!userInfo) {
-      console.error('Failed to extract user info from token');
+      console.error('Failed to extract user info from ID token');
       throw new Error('Authentication failed - invalid user token');
     }
+
+    debugLog('User info extracted:', { email: userInfo.email, name: userInfo.name });
 
     const result: LoginResponse = {
       ...tokens,
@@ -262,12 +323,11 @@ export async function login(params: LoginParams): Promise<LoginResponse> {
     // Store tokens
     storeTokens(tokens);
     
-    console.log('Login successful for:', userInfo.email);
+    console.log('✅ Login successful for:', userInfo.email);
 
     return result;
   } catch (error) {
-    // SECURITY: Never log the password in error cases
-    console.error('Login error for:', params.email);
+    console.error('❌ Login error for:', params.email);
     
     if (error instanceof Error) {
       throw error;
@@ -279,7 +339,6 @@ export async function login(params: LoginParams): Promise<LoginResponse> {
 
 /**
  * Register new user
- * SECURITY: Password is validated and never logged
  */
 export async function register(params: RegisterParams): Promise<RegisterResponse> {
   // Validate inputs client-side
@@ -287,9 +346,8 @@ export async function register(params: RegisterParams): Promise<RegisterResponse
     throw new Error('Invalid email format');
   }
   
-  const passwordValidation = validatePassword(params.password);
-  if (!passwordValidation.valid) {
-    throw new Error(passwordValidation.message || 'Invalid password');
+  if (!params.password || params.password.length < 8) {
+    throw new Error('Password must be at least 8 characters');
   }
   
   if (!params.name.trim()) {
@@ -314,7 +372,7 @@ export async function register(params: RegisterParams): Promise<RegisterResponse
       description: params.description || '',
     };
 
-    console.log('Attempting registration for:', params.email); // Only log email
+    debugLog('Attempting registration for:', params.email);
 
     const response = await fetch(`${API_BASE_URL}/signup`, {
       method: 'POST',
@@ -324,11 +382,14 @@ export async function register(params: RegisterParams): Promise<RegisterResponse
       body: JSON.stringify(requestBody),
     });
 
+    debugLog('Registration response status:', response.status);
+
     if (!response.ok) {
       let errorMessage = 'Registration failed';
       
       try {
         const errorData = await response.json();
+        debugLog('Registration error data:', errorData);
         errorMessage = errorData.message || errorData.error || errorMessage;
       } catch {
         const errorText = await response.text();
@@ -337,7 +398,6 @@ export async function register(params: RegisterParams): Promise<RegisterResponse
         }
       }
 
-      // Provide specific error messages
       if (response.status === 409 || errorMessage.toLowerCase().includes('already exists')) {
         throw new Error('An account with this email already exists. Please sign in instead.');
       } else if (response.status === 400) {
@@ -350,7 +410,7 @@ export async function register(params: RegisterParams): Promise<RegisterResponse
     }
 
     const data = await response.json();
-    console.log('Registration successful for:', params.email);
+    console.log('✅ Registration successful for:', params.email);
 
     return {
       success: true,
@@ -363,7 +423,7 @@ export async function register(params: RegisterParams): Promise<RegisterResponse
       requiresVerification: data.requiresVerification === true || data.user?.confirmed === false,
     };
   } catch (error) {
-    console.error('Registration error for:', params.email);
+    console.error('❌ Registration error for:', params.email);
     
     if (error instanceof Error) {
       throw error;
@@ -435,7 +495,7 @@ export async function sendMessage(
       }
 
       if (response.status === 401 || response.status === 403) {
-        clearTokens(); // Clear invalid tokens
+        clearTokens();
         throw new Error('Authentication failed. Please log in again.');
       }
 
