@@ -26,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning={true}>
       {/* Using the Inter font variable defined above.
         Ensuring the app is full-height and hides overflow.
       */}

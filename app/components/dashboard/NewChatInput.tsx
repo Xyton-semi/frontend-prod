@@ -4,32 +4,30 @@ import React, { useState, useRef, KeyboardEvent } from 'react';
 import { 
   Code, 
   Image as ImageIcon, 
-  SendHorizontal, // Swapped ArrowUp for a more modern 'Send' icon
+  SendHorizontal,
   AlertCircle, 
   Loader2, 
-  Paperclip 
 } from 'lucide-react';
-import { sendMessage } from '@/utils/auth';
 
-interface ChatInputProps {
-  onSubmit?: (message: string) => void;
+interface NewChatInputProps {
+  onSubmit?: (message: string) => Promise<void>;
   placeholder?: string;
-  conversationId?: string;
+  disabled?: boolean;
+  isLoading?: boolean;
 }
 
 /**
- * NewChatInput
- * Redesigned chat interface for Xyton-Semi.
- * Features a modern, contained aesthetic with strong emphasis on the company red.
+ * NewChatInput - Updated with conversation API integration
+ * Redesigned chat interface for Xyton-Semi with conversation support
  */
-const NewChatInput: React.FC<ChatInputProps> = ({ 
+const NewChatInput: React.FC<NewChatInputProps> = ({ 
   onSubmit,
-  placeholder = "Ask Xyton AI about your design...", // Slightly updated default placeholder
-  conversationId = "5f66002a-6690-48ae-b184-716034f36855"
+  placeholder = "Ask Xyton AI about your design...",
+  disabled = false,
+  isLoading = false,
 }) => {
   const [input, setInput] = useState('');
   const [isComposing, setIsComposing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Refs
@@ -40,20 +38,16 @@ const NewChatInput: React.FC<ChatInputProps> = ({
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     
-    if (!input.trim() || isComposing || isLoading) return;
+    if (!input.trim() || isComposing || disabled || isLoading) return;
 
-    setIsLoading(true);
     setError(null);
 
     try {
-      // API Integration
-      const response = await sendMessage(conversationId, input.trim());
-      console.log('API Response:', response);
-      
       if (onSubmit) {
-        onSubmit(input);
+        await onSubmit(input.trim());
       }
       
+      // Clear input after successful send
       setInput('');
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
@@ -62,14 +56,6 @@ const NewChatInput: React.FC<ChatInputProps> = ({
     } catch (err) {
       console.error('Failed to send message:', err);
       setError(err instanceof Error ? err.message : 'Failed to send message');
-      
-      if (err instanceof Error && err.message.includes('log in')) {
-        setTimeout(() => {
-          window.location.href = '/login';
-        }, 2000);
-      }
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -87,7 +73,7 @@ const NewChatInput: React.FC<ChatInputProps> = ({
     // Auto-resize
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`; // Increased max-height slightly
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 150)}px`;
     }
   };
 
@@ -95,8 +81,9 @@ const NewChatInput: React.FC<ChatInputProps> = ({
     const file = e.target.files?.[0];
     if (file) {
       console.log('File selected:', file.name);
+      // TODO: Implement file upload
       if (onSubmit) {
-        onSubmit(`[Attachment: ${file.name}]`); // Distinct format for attachments
+        onSubmit(`[Attachment: ${file.name}]`);
       }
     }
   };
@@ -111,7 +98,7 @@ const NewChatInput: React.FC<ChatInputProps> = ({
         </div>
       )}
 
-      {/* Main Input Container - "Card" Style */}
+      {/* Main Input Container */}
       <div 
         className={`
           relative flex flex-col gap-2 p-3 
@@ -119,6 +106,7 @@ const NewChatInput: React.FC<ChatInputProps> = ({
           border transition-all duration-200 ease-in-out
           rounded-2xl shadow-sm
           ${isComposing || input ? 'border-red-500 ring-1 ring-red-500/20' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'}
+          ${disabled || isLoading ? 'opacity-50 cursor-not-allowed' : ''}
         `}
       >
         
@@ -131,7 +119,7 @@ const NewChatInput: React.FC<ChatInputProps> = ({
           onCompositionStart={() => setIsComposing(true)}
           onCompositionEnd={() => setIsComposing(false)}
           placeholder={placeholder}
-          disabled={isLoading}
+          disabled={disabled || isLoading}
           rows={1}
           className="
             w-full px-2 py-1 min-h-[44px] max-h-[150px]
@@ -139,10 +127,11 @@ const NewChatInput: React.FC<ChatInputProps> = ({
             text-gray-900 dark:text-gray-100 placeholder-gray-400
             text-sm leading-relaxed
             scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-600
+            disabled:cursor-not-allowed
           "
         />
 
-        {/* Action Bar (Attachments + Send) */}
+        {/* Action Bar */}
         <div className="flex items-center justify-between px-1 pt-1">
           
           {/* Attachment Tools */}
@@ -150,12 +139,13 @@ const NewChatInput: React.FC<ChatInputProps> = ({
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              disabled={isLoading}
+              disabled={disabled || isLoading}
               className="
                 group flex items-center gap-1.5 px-3 py-1.5 rounded-full
                 text-xs font-medium text-gray-500 dark:text-gray-400
                 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400
                 transition-colors
+                disabled:opacity-50 disabled:cursor-not-allowed
               "
               title="Upload Netlist (.sp, .cir, .net)"
             >
@@ -166,12 +156,13 @@ const NewChatInput: React.FC<ChatInputProps> = ({
             <button
               type="button"
               onClick={() => imageInputRef.current?.click()}
-              disabled={isLoading}
+              disabled={disabled || isLoading}
               className="
                 group flex items-center gap-1.5 px-3 py-1.5 rounded-full
                 text-xs font-medium text-gray-500 dark:text-gray-400
                 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600 dark:hover:text-red-400
                 transition-colors
+                disabled:opacity-50 disabled:cursor-not-allowed
               "
               title="Upload Image"
             >
@@ -180,14 +171,14 @@ const NewChatInput: React.FC<ChatInputProps> = ({
             </button>
           </div>
 
-          {/* Send Button - Strong Xyton Red */}
+          {/* Send Button */}
           <button
             onClick={() => handleSubmit()}
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() || disabled || isLoading}
             className={`
               flex items-center justify-center p-2.5 rounded-xl
               transition-all duration-200
-              ${(!input.trim() || isLoading)
+              ${(!input.trim() || disabled || isLoading)
                 ? 'bg-gray-100 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
                 : 'bg-red-600 hover:bg-red-700 text-white shadow-md hover:shadow-lg hover:shadow-red-500/20 active:scale-95'
               }
@@ -209,7 +200,7 @@ const NewChatInput: React.FC<ChatInputProps> = ({
         accept=".sp,.cir,.net,.netlist"
         className="hidden"
         onChange={handleFileChange}
-        disabled={isLoading}
+        disabled={disabled || isLoading}
       />
       <input
         ref={imageInputRef}
@@ -217,10 +208,10 @@ const NewChatInput: React.FC<ChatInputProps> = ({
         accept="image/*"
         className="hidden"
         onChange={handleFileChange}
-        disabled={isLoading}
+        disabled={disabled || isLoading}
       />
       
-      {/* Footer Info (Optional) */}
+      {/* Footer Info */}
       <div className="mt-2 text-center">
         <p className="text-[10px] text-gray-400 dark:text-gray-500">
           Xyton AI can make mistakes. Please verify generated netlists.

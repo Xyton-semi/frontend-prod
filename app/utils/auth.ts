@@ -1,6 +1,9 @@
 /**
- * Consolidated Authentication & API Client
- * Combines authentication, token management, and API calls
+ * Authentication utilities for AWS Cognito
+ * 
+ * NOTE: This app uses AWS Cognito Amplify for authentication.
+ * Cognito handles the actual login/signup and returns tokens.
+ * Your backend APIs use the access_token from Cognito in the Authorization header.
  */
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://7j7y34kk48.execute-api.us-east-1.amazonaws.com/v1';
@@ -14,7 +17,20 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://7j7y34kk48.exec
  */
 export function decodeJWT(token: string): any {
   try {
-    const base64Url = token.split('.')[1];
+    if (!token || typeof token !== 'string') {
+      return null;
+    }
+
+    const parts = token.split('.');
+    if (parts.length !== 3) {
+      return null;
+    }
+
+    const base64Url = parts[1];
+    if (!base64Url) {
+      return null;
+    }
+
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
     const jsonPayload = decodeURIComponent(
       atob(base64)
@@ -59,7 +75,7 @@ export function getInitials(name: string): string {
 /**
  * Get stored tokens from sessionStorage
  */
-function getStoredTokens() {
+export function getStoredTokens() {
   if (typeof window === 'undefined') return null;
   
   return {
@@ -72,7 +88,7 @@ function getStoredTokens() {
 /**
  * Store tokens in sessionStorage
  */
-function storeTokens(tokens: { accessToken: string; refreshToken: string; idToken: string }) {
+export function storeTokens(tokens: { accessToken: string; refreshToken: string; idToken: string }) {
   if (typeof window === 'undefined') return;
   
   sessionStorage.setItem('accessToken', tokens.accessToken);
@@ -81,7 +97,7 @@ function storeTokens(tokens: { accessToken: string; refreshToken: string; idToke
 }
 
 /**
- * Clear all stored tokens
+ * Clear all stored tokens and user data
  */
 export function clearTokens() {
   if (typeof window === 'undefined') return;
@@ -94,24 +110,13 @@ export function clearTokens() {
 }
 
 // ============================================================================
-// AUTHENTICATION
+// AUTHENTICATION - COGNITO AMPLIFY
 // ============================================================================
 
-export interface LoginParams {
-  email: string;
-  password: string;
-}
-
-export interface LoginResponse {
-  accessToken: string;
-  refreshToken: string;
-  idToken: string;
-  user: {
-    name: string;
-    email: string;
-  };
-}
-
+/**
+ * Register/Signup new user
+ * This calls your backend's /signup endpoint
+ */
 export interface RegisterParams {
   name: string;
   email: string;
@@ -122,70 +127,10 @@ export interface RegisterParams {
 }
 
 export interface RegisterResponse {
-  success: boolean;
   message: string;
-  user: {
-    id: string;
-    email: string;
-    confirmed: boolean;
-  };
-  requiresVerification: boolean;
+  timestamp: string;
 }
 
-/**
- * Login to AWS backend
- */
-export async function login(params: LoginParams): Promise<LoginResponse> {
-  try {
-    const response = await fetch(`${API_BASE_URL}/signin`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username: params.email,
-        password: params.password,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || errorData.error || 'Login failed');
-    }
-
-    const data = await response.json();
-
-    // Handle various response formats
-    const tokens = {
-      accessToken: data.access_token || data.accessToken || '',
-      refreshToken: data.refresh_token || data.refreshToken || '',
-      idToken: data.id_token || data.idToken || data.token || '',
-    };
-
-    // Extract user info from token
-    const userInfo = getUserFromToken(tokens.idToken);
-
-    const result: LoginResponse = {
-      ...tokens,
-      user: userInfo || {
-        name: params.email.split('@')[0],
-        email: params.email,
-      },
-    };
-
-    // Store tokens
-    storeTokens(tokens);
-
-    return result;
-  } catch (error) {
-    console.error('Login error:', error);
-    throw error;
-  }
-}
-
-/**
- * Register new user
- */
 export async function register(params: RegisterParams): Promise<RegisterResponse> {
   try {
     const response = await fetch(`${API_BASE_URL}/signup`, {
@@ -209,129 +154,139 @@ export async function register(params: RegisterParams): Promise<RegisterResponse
     }
 
     const data = await response.json();
-
-    return {
-      success: true,
-      message: data.message || 'Registration successful',
-      user: {
-        id: data.user?.id || data.userId || '',
-        email: data.user?.email || data.email || params.email,
-        confirmed: data.user?.confirmed !== false,
-      },
-      requiresVerification: data.requiresVerification === true || data.user?.confirmed === false,
-    };
+    return data;
   } catch (error) {
     console.error('Registration error:', error);
     throw error;
   }
 }
 
-// ============================================================================
-// API CALLS
-// ============================================================================
-
-export interface SendMessageRequest {
-  query: string;
-  user_id: string;
-}
-
-export interface SendMessageResponse {
-  response?: string;
-  conversation_id?: string;
-  message_id?: string;
-  [key: string]: any;
-}
-
 /**
- * Send a message to the conversation API
+ * Login via backend /signin endpoint
  */
-export async function sendMessage(
-  conversationId: string,
-  query: string,
-  userId?: string
-): Promise<SendMessageResponse> {
-  const tokens = getStoredTokens();
-  const userEmail = userId || (typeof window !== 'undefined' ? sessionStorage.getItem('userEmail') : null);
-
-  if (!tokens?.idToken) {
-    throw new Error('No authentication token found. Please log in.');
-  }
-
-  if (!userEmail) {
-    throw new Error('User email not found. Please log in again.');
-  }
-
-  try {
-    const response = await fetch(
-      `${API_BASE_URL}/conversation/${conversationId}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `bearer ${tokens.idToken}`,
-        },
-        body: JSON.stringify({
-          query: query,
-          user_id: userEmail,
-        }),
-      }
-    );
-
-    if (!response.ok) {
-      let errorMessage = `API Error: ${response.status}`;
-      
-      try {
-        const errorData = await response.json();
-        errorMessage = errorData.message || errorMessage;
-      } catch {
-        errorMessage = await response.text() || errorMessage;
-      }
-
-      if (response.status === 401 || response.status === 403) {
-        throw new Error('Authentication failed. Please log in again.');
-      }
-
-      throw new Error(errorMessage);
-    }
-
-    return await response.json();
-  } catch (error) {
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error('Failed to send message. Please try again.');
-  }
+export interface LoginParams {
+  email: string;
+  password: string;
 }
 
-/**
- * Create a new conversation
- */
-export async function createConversation(): Promise<{ conversation_id: string }> {
-  const tokens = getStoredTokens();
-  const userEmail = typeof window !== 'undefined' ? sessionStorage.getItem('userEmail') : null;
+export interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  idToken: string;
+  user: {
+    name: string;
+    email: string;
+  };
+}
 
-  if (!tokens?.idToken || !userEmail) {
-    throw new Error('No authentication token found. Please log in.');
-  }
-
+export async function login(params: LoginParams): Promise<LoginResponse> {
   try {
-    const response = await fetch(`${API_BASE_URL}/conversation`, {
+    console.log('Login attempt for:', params.email);
+    
+    const response = await fetch(`${API_BASE_URL}/signin`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `bearer ${tokens.idToken}`,
       },
       body: JSON.stringify({
-        user_id: userEmail,
+        username: params.email,
+        password: params.password,
       }),
     });
 
+    console.log('Login response status:', response.status);
+
     if (!response.ok) {
-      throw new Error(`Failed to create conversation: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      console.error('Login failed with error:', errorData);
+      throw new Error(errorData.message || errorData.error || 'Login failed');
     }
 
-    return await response.json();
+    const data = await response.json();
+    console.log('Login response data keys:', Object.keys(data));
+
+    // Extract tokens from response (your API returns access_token, refresh_token)
+    const accessToken = data.access_token || '';
+    const refreshToken = data.refresh_token || '';
+    // Use accessToken as idToken since your API doesn't return separate id_token
+    const idToken = data.id_token || accessToken;
+    
+    const tokens = {
+      accessToken,
+      idToken,
+      refreshToken,
+    };
+
+    console.log('Token status:', {
+      accessToken: accessToken ? '✓' : '✗',
+      refreshToken: refreshToken ? '✓' : '✗',
+      idToken: idToken ? '✓' : '✗',
+    });
+
+    // Validate that we got at least an accessToken
+    if (!tokens.accessToken) {
+      console.error('❌ No access_token found in response!');
+      throw new Error('Invalid login response: missing authentication token');
+    }
+
+    // Extract user info from response
+    const userInfo = {
+      name: data.name || params.email.split('@')[0],
+      email: data.email || params.email,
+    };
+
+    console.log('User info:', userInfo);
+
+    const result: LoginResponse = {
+      ...tokens,
+      user: userInfo,
+    };
+
+    // Store tokens in sessionStorage
+    storeTokens(tokens);
+    
+    // Store user info
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('userName', userInfo.name);
+      sessionStorage.setItem('userEmail', userInfo.email);
+    }
+
+    console.log('✅ Login successful!');
+    return result;
   } catch (error) {
-    throw new Error('Failed to create conversation. Please try again.');
+    console.error('❌ Login error:', error);
+    throw error;
   }
+}
+
+/**
+ * Check if user is authenticated
+ */
+export function isAuthenticated(): boolean {
+  if (typeof window === 'undefined') return false;
+  
+  const tokens = getStoredTokens();
+  return !!(tokens?.accessToken && tokens?.idToken);
+}
+
+/**
+ * Get current user info from stored tokens
+ */
+export function getCurrentUser(): { name: string; email: string } | null {
+  if (typeof window === 'undefined') return null;
+  
+  const userName = sessionStorage.getItem('userName');
+  const userEmail = sessionStorage.getItem('userEmail');
+  
+  if (userName && userEmail) {
+    return { name: userName, email: userEmail };
+  }
+  
+  // Fallback: try to decode from idToken
+  const tokens = getStoredTokens();
+  if (tokens?.idToken) {
+    return getUserFromToken(tokens.idToken);
+  }
+  
+  return null;
 }
