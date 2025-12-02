@@ -1,7 +1,6 @@
 /**
  * Authentication utilities for AWS Cognito
- * 
- * NOTE: This app uses AWS Cognito Amplify for authentication.
+ * * NOTE: This app uses AWS Cognito Amplify for authentication.
  * Cognito handles the actual login/signup and returns tokens.
  * Your backend APIs use the access_token from Cognito in the Authorization header.
  */
@@ -129,6 +128,7 @@ export interface RegisterParams {
 export interface RegisterResponse {
   message: string;
   timestamp: string;
+  requiresVerification?: boolean;
 }
 
 export async function register(params: RegisterParams): Promise<RegisterResponse> {

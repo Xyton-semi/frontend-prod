@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, KeyboardEvent } from 'react';
 import { Code, Image as ImageIcon, ArrowUp, AlertCircle, Loader2 } from 'lucide-react';
-import { sendMessage } from '@/utils/auth';
+import { sendMessageInConversation } from '@/utils/conversation-api';
 
 interface ChatInputProps {
   onSubmit?: (message: string) => void;
@@ -36,8 +36,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
     setError(null);
 
     try {
-      // Call the API
-      const response = await sendMessage(conversationId, input.trim());
+      // Call the API using the correct function
+      const response = await sendMessageInConversation(conversationId, input.trim());
       
       console.log('API Response:', response);
       
