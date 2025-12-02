@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+/* Light mode - default */
+:root {
+  color-scheme: light;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f3f4f6;
+  --text-primary: #000000;
+  --text-secondary: #374151;
+  --border-color: #e5e7eb;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Dark mode - dark grayish-blue backgrounds */
+html.dark,
+[data-theme="dark"] {
+  color-scheme: dark;
+  --bg-primary: #1a1f2e;
+  --bg-secondary: #162745;
+  --text-primary: #e5e7eb;
+  --text-secondary: #d1d5db;
+  --border-color: #3f4758;
+}
+
+html.dark body,
+[data-theme="dark"] body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+html.dark main,
+[data-theme="dark"] main {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Override specific Tailwind background colors */
+[class*="bg-white"] {
+  background-color: var(--bg-primary) !important;
+}
+
+[class*="bg-gray-50"] {
+  background-color: var(--bg-secondary) !important;
+}
+
+[class*="bg-gray-100"] {
+  background-color: var(--bg-secondary) !important;
+}
+
+/* Override text colors */
+[class*="text-gray-900"] {
+  color: var(--text-primary) !important;
+}
+
+[class*="text-gray-700"] {
+  color: var(--text-secondary) !important;
+}
+
+[class*="text-gray-600"] {
+  color: var(--text-secondary) !important;
+}
+
+/* Override borders */
+[class*="border-gray-200"] {
+  border-color: var(--border-color) !important;
+}
+
+[class*="border-gray-300"] {
+  border-color: var(--border-color) !important;
+}
+
+/* Custom scrollbar styles */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+html.dark .scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #4b5563;
+}
+
+html.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #6b7280;
+}
+
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
