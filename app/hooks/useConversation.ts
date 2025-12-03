@@ -8,6 +8,7 @@ import {
   pollUntilComplete,
   getLocalMessages,
   storeMessageLocally,
+  getConversationMessages,
   type Conversation,
   type Message,
 } from '@/utils/conversation-api';
@@ -77,11 +78,32 @@ export function useConversation(): UseConversationResult {
 
   /**
    * Load messages for a specific conversation
+   * First tries to load from API, falls back to localStorage
    */
-  const loadMessages = useCallback((conversationId: string) => {
-    // Load from local storage
-    const localMessages = getLocalMessages(conversationId);
-    setMessages(localMessages);
+  const loadMessages = useCallback(async (conversationId: string) => {
+    try {
+      // Try to load from API first
+      const apiMessages = await getConversationMessages(conversationId);
+      
+      if (apiMessages.length > 0) {
+        setMessages(apiMessages);
+        
+        // Update localStorage with fresh data
+        if (typeof window !== 'undefined') {
+          const key = `conversation_${conversationId}`;
+          localStorage.setItem(key, JSON.stringify(apiMessages));
+        }
+      } else {
+        // Fallback to localStorage if API returns empty
+        const localMessages = getLocalMessages(conversationId);
+        setMessages(localMessages);
+      }
+    } catch (error) {
+      console.error('Error loading messages from API, using local cache:', error);
+      // Fallback to localStorage on error
+      const localMessages = getLocalMessages(conversationId);
+      setMessages(localMessages);
+    }
   }, []);
 
   /**
