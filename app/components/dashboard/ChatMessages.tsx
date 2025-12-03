@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useEffect, useRef } from 'react';
-import { Loader2, AlertCircle, User, Bot } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import type { Message } from '@/utils/conversation-api';
 
 interface ChatMessagesProps {
@@ -40,13 +40,16 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
     return (
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="text-center max-w-md">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-            <Bot size={32} className="text-gray-400 dark:text-gray-500" />
+          <div className="w-24 h-24 mx-auto mb-6 flex items-center justify-center">
+            <svg className="w-full h-full text-gray-700" viewBox="0 0 100 100" fill="none">
+              <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="2" opacity="0.3"/>
+              <path d="M30 45 L45 60 L70 35" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.5"/>
+            </svg>
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2">
-            Start a Conversation
+          <h3 className="text-xl font-mono font-bold text-gray-300 mb-2 tracking-wider">
+            START A CONVERSATION
           </h3>
-          <p className="text-sm text-gray-600 dark:text-gray-400">
+          <p className="text-sm font-mono text-gray-500">
             Send a message to begin your circuit design discussion
           </p>
         </div>
@@ -57,7 +60,11 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
   return (
     <div 
       ref={containerRef}
-      className="flex-1 overflow-y-auto px-4 py-6 space-y-6 scrollbar-thin"
+      className="flex-1 overflow-y-auto px-6 py-8 space-y-4"
+      style={{
+        scrollbarWidth: 'thin',
+        scrollbarColor: '#374151 #1f2937'
+      }}
     >
       {messages.map((message) => {
         const isUser = message.role === 'user';
@@ -67,58 +74,43 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
         return (
           <div
             key={message.id}
-            className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
+            className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}
           >
-            {/* Avatar */}
-            <div className={`
-              flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center
-              ${isUser 
-                ? 'bg-red-100 dark:bg-red-950' 
-                : 'bg-gray-100 dark:bg-gray-800'
-              }
-            `}>
-              {isUser ? (
-                <User size={16} className="text-red-600 dark:text-red-400" />
-              ) : (
-                <Bot size={16} className="text-gray-600 dark:text-gray-400" />
-              )}
-            </div>
-
-            {/* Message Content */}
-            <div className={`flex-1 max-w-[80%] ${isUser ? 'items-end' : 'items-start'}`}>
+            {/* Message Bubble */}
+            <div className={`max-w-[75%] ${isUser ? 'text-right' : 'text-left'}`}>
               <div
                 className={`
-                  rounded-2xl px-4 py-3 
+                  inline-block px-4 py-3 rounded-2xl font-mono text-sm
                   ${isUser
-                    ? 'bg-red-600 text-white rounded-tr-sm'
-                    : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-tl-sm'
+                    ? 'bg-red-600 text-white rounded-tr-md shadow-lg'
+                    : 'bg-gray-800 text-gray-100 rounded-tl-md border border-gray-700'
                   }
-                  ${isError ? 'border border-red-300 dark:border-red-700' : ''}
+                  ${isError ? 'border-2 border-red-500' : ''}
                 `}
               >
                 {/* Processing State */}
                 {isProcessing && !isUser && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Loader2 size={16} className="animate-spin" />
-                    <span className="text-gray-600 dark:text-gray-400">
-                      Thinking...
+                  <div className="flex items-center gap-2">
+                    <Loader2 size={14} className="animate-spin text-gray-400" />
+                    <span className="text-gray-400 text-xs uppercase tracking-wider">
+                      Processing...
                     </span>
                   </div>
                 )}
 
                 {/* Error State */}
                 {isError && (
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
-                    <span className="text-sm text-red-600 dark:text-red-400">
-                      {message.error || 'Failed to get response'}
+                  <div className="flex items-center gap-2 mb-2 text-red-400">
+                    <AlertCircle size={14} className="flex-shrink-0" />
+                    <span className="text-xs uppercase tracking-wider">
+                      {message.error || 'Error'}
                     </span>
                   </div>
                 )}
 
                 {/* Message Text */}
                 {message.content && (
-                  <div className="text-sm whitespace-pre-wrap break-words">
+                  <div className="whitespace-pre-wrap break-words leading-relaxed">
                     {message.content}
                   </div>
                 )}
@@ -127,7 +119,7 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
               {/* Timestamp */}
               {message.timestamp && (
                 <div className={`
-                  text-xs text-gray-400 dark:text-gray-500 mt-1 px-1
+                  text-[10px] font-mono text-gray-600 mt-1 px-2 uppercase tracking-wider
                   ${isUser ? 'text-right' : 'text-left'}
                 `}>
                   {formatTime(message.timestamp)}
@@ -140,15 +132,12 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
 
       {/* Loading indicator */}
       {isLoading && (
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
-            <Bot size={16} className="text-gray-600 dark:text-gray-400" />
-          </div>
-          <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl rounded-tl-sm px-4 py-3">
+        <div className="flex justify-start">
+          <div className="inline-block bg-gray-800 border border-gray-700 rounded-2xl rounded-tl-md px-4 py-3">
             <div className="flex items-center gap-2">
-              <Loader2 size={16} className="animate-spin text-gray-600 dark:text-gray-400" />
-              <span className="text-sm text-gray-600 dark:text-gray-400">
-                Processing...
+              <Loader2 size={14} className="animate-spin text-gray-400" />
+              <span className="text-xs font-mono text-gray-400 uppercase tracking-wider">
+                AI Thinking...
               </span>
             </div>
           </div>

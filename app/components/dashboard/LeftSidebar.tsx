@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PanelLeftClose, PlusSquare, Search, MoreVertical, MessageSquare, LucideIcon } from 'lucide-react';
+import { PanelLeftClose, PlusSquare, MoreVertical } from 'lucide-react';
 import Logo from '../ui/Logo'
 import Avatar from '../ui/Avatar';
 import ConversationList from './ConversationList';
@@ -19,6 +19,10 @@ interface LeftSidebarProps {
   isLoadingConversations?: boolean;
 }
 
+/**
+ * LeftSidebar - Brutalist Design
+ * Dark theme with red accents, monospace fonts
+ */
 const LeftSidebar: React.FC<LeftSidebarProps> = ({ 
   isOpen, 
   setIsOpen,
@@ -70,19 +74,23 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
   };
 
   return (
-    <div className={`${isOpen ? 'w-64' : 'w-0'} flex-shrink-0 border-r border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex flex-col transition-all duration-300 ease-in-out overflow-visible`}>
-      <div className="p-4 flex items-center justify-between flex-shrink-0">
-        <Logo />
-        <button onClick={() => setIsOpen(false)} className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-400 lg:hidden">
+    <div className={`${isOpen ? 'w-64' : 'w-0'} flex-shrink-0 border-r border-gray-800 bg-gray-900 flex flex-col transition-all duration-300 ease-in-out overflow-visible`}>
+      {/* Header */}
+      <div className="p-4 flex items-center justify-between flex-shrink-0 border-b border-gray-800">
+        <div className="text-red-600 font-mono font-bold text-xl tracking-wider">XYTON</div>
+        <button 
+          onClick={() => setIsOpen(false)} 
+          className="text-gray-500 hover:text-gray-300 lg:hidden transition-colors"
+        >
           <PanelLeftClose size={20} />
         </button>
       </div>
 
       {/* New Conversation Button */}
-      <div className="px-2 pb-3 flex-shrink-0">
+      <div className="px-3 py-4 flex-shrink-0">
         <button
           onClick={onNewConversation}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors font-medium text-sm"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-mono text-xs uppercase tracking-wider rounded-sm transition-colors"
         >
           <PlusSquare size={18} />
           <span>New Design</span>
@@ -90,19 +98,19 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
       </div>
 
       {/* Conversations Section */}
-      <div className="flex-shrink-0 px-4 pb-2">
+      <div className="flex-shrink-0 px-4 pb-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+          <h3 className="font-mono text-[10px] font-bold text-gray-500 uppercase tracking-wider">
             Conversations
           </h3>
-          <span className="text-xs text-gray-400 dark:text-gray-500">
+          <span className="font-mono text-[10px] text-gray-600">
             {conversations.length}
           </span>
         </div>
       </div>
 
       {/* Conversation List */}
-      <div className="flex-grow overflow-y-auto scrollbar-thin">
+      <div className="flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700">
         <ConversationList
           conversations={conversations}
           currentConversationId={currentConversationId}
@@ -112,12 +120,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
       </div>
 
       {/* User Profile Section */}
-      <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0 transition-colors">
+      <div className="p-4 border-t border-gray-800 flex items-center justify-between flex-shrink-0">
         <div className="flex items-center space-x-3 flex-1 min-w-0 cursor-pointer" onClick={handleProfileClick}>
           <Avatar src={undefined} alt={getDisplayName()} fallback={getInitials(getDisplayName())} />
           <div className="overflow-hidden flex-1 min-w-0">
-            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 leading-none truncate">{getDisplayName()}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 leading-none mt-1 truncate">{userEmail || 'Not logged in'}</p>
+            <p className="font-mono text-sm font-medium text-gray-100 leading-none truncate">{getDisplayName()}</p>
+            <p className="font-mono text-[10px] text-gray-500 leading-none mt-1 truncate">{userEmail || 'Not logged in'}</p>
           </div>
         </div>
 
@@ -125,14 +133,19 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
           <button
             onClick={(e) => { e.stopPropagation(); setMenuOpen(prev => !prev); }}
             aria-label="Open menu"
-            className="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="p-1.5 rounded hover:bg-gray-800 transition-colors"
           >
-            <MoreVertical size={18} className="text-gray-500 dark:text-gray-400" />
+            <MoreVertical size={18} className="text-gray-500" />
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 bottom-full mb-2 w-40 bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded shadow-lg z-[9999] transition-colors">
-              <button onClick={handleSignOut} className="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors">Sign out</button>
+            <div className="absolute right-0 bottom-full mb-2 w-40 bg-gray-800 border border-gray-700 shadow-lg z-[9999]">
+              <button 
+                onClick={handleSignOut} 
+                className="w-full text-left px-4 py-2 font-mono text-xs text-gray-200 hover:bg-gray-700 transition-colors uppercase tracking-wider"
+              >
+                Sign out
+              </button>
             </div>
           )}
         </div>
