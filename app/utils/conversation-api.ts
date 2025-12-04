@@ -1,5 +1,5 @@
 /**
- * Conversation API Client
+ * Conversation API Client - WITH STREAMING SUPPORT
  * 
  * All API endpoints for managing conversations and messages.
  * Uses AWS Cognito access_token for authentication.
@@ -11,19 +11,11 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://7j7y34kk48.exec
 // PROXY CONFIGURATION (for CORS handling)
 // ============================================================================
 
-/**
- * Set to true to use proxy for API requests (helps with CORS issues)
- * The proxy endpoint should be set up to forward requests to the API
- */
 const USE_PROXY = false;
 
-/**
- * Build API URL with proxy if enabled
- */
 function buildApiUrl(path: string, queryParams?: Record<string, string>): string {
   let url = USE_PROXY ? `${API_BASE_URL}${path}` : `${API_BASE_URL}${path}`;
   
-  // Add query parameters if provided
   if (queryParams && Object.keys(queryParams).length > 0) {
     const params = new URLSearchParams();
     Object.entries(queryParams).forEach(([key, value]) => {
@@ -42,9 +34,6 @@ function buildApiUrl(path: string, queryParams?: Record<string, string>): string
 // TYPES
 // ============================================================================
 
-/**
- * Conversation from GET /conversation
- */
 export interface Conversation {
   id: string;
   name: string;
@@ -52,44 +41,29 @@ export interface Conversation {
   created_at: string;
 }
 
-/**
- * Response from GET /conversation?user_id={email}
- */
 export interface GetConversationsResponse {
   conversations: Conversation[];
 }
 
-/**
- * Response from POST /new_query
- */
 export interface NewQueryResponse {
   message_id: string;
   conversation_id: string;
   timestamp: string;
 }
 
-/**
- * Response from POST /conversation/{id}/message
- */
 export interface NewMessageResponse {
   message_id: string;
   timestamp: string;
 }
 
-/**
- * Response from GET /conversation/{id}/message/{msgId} (polling)
- */
 export interface MessageStatusResponse {
   message_id: string;
-  status: string; // "Processing....." or "Complete"
+  status: string;
   error: string;
-  message: string; // LLM response when status is "Complete"
+  message: string;
   timestamp: string;
 }
 
-/**
- * Local message structure for UI
- */
 export interface Message {
   id: string;
   conversation_id?: string;
@@ -98,7 +72,6 @@ export interface Message {
   timestamp?: string;
   status?: 'pending' | 'processing' | 'complete' | 'error';
   error?: string;
-  // New API response fields
   index?: number;
   message_by?: 'user' | 'model';
 }
@@ -107,16 +80,11 @@ export interface Message {
 // AUTHENTICATION HELPERS
 // ============================================================================
 
-/**
- * Get authentication headers with bearer token
- * Uses access_token from Cognito
- */
 function getAuthHeaders(): Record<string, string> {
   if (typeof window === 'undefined') {
     throw new Error('Cannot access sessionStorage on server');
   }
 
-  // Use accessToken from Cognito as per API documentation
   const accessToken = sessionStorage.getItem('accessToken');
   
   if (!accessToken) {
@@ -129,9 +97,6 @@ function getAuthHeaders(): Record<string, string> {
   };
 }
 
-/**
- * Get user email from sessionStorage
- */
 function getUserEmail(): string {
   if (typeof window === 'undefined') {
     throw new Error('Cannot access sessionStorage on server');
@@ -150,10 +115,6 @@ function getUserEmail(): string {
 // API FUNCTIONS
 // ============================================================================
 
-/**
- * Get all conversations for the current user
- * GET /conversation?user_id={email}
- */
 export async function getAllConversations(): Promise<Conversation[]> {
   try {
     const userEmail = getUserEmail();
@@ -170,7 +131,6 @@ export async function getAllConversations(): Promise<Conversation[]> {
 
     if (!response.ok) {
       if (response.status === 401 || response.status === 403) {
-        // Clear tokens and redirect to login
         if (typeof window !== 'undefined') {
           sessionStorage.clear();
           window.location.href = '/login';
@@ -190,13 +150,6 @@ export async function getAllConversations(): Promise<Conversation[]> {
   }
 }
 
-/**
- * Start a new conversation with initial query
- * POST /new_query
- * 
- * Body: { email: string, query: string }
- * Response: { message_id: string, conversation_id: string, timestamp: string }
- */
 export async function startNewConversation(query: string): Promise<NewQueryResponse> {
   try {
     const userEmail = getUserEmail();
@@ -236,13 +189,6 @@ export async function startNewConversation(query: string): Promise<NewQueryRespo
   }
 }
 
-/**
- * Send a new message in an existing conversation
- * POST /conversation/{conversation_id}/message
- * 
- * Body: { query: string, user_id: string }
- * Response: { message_id: string, timestamp: string }
- */
 export async function sendMessageInConversation(
   conversationId: string,
   query: string
@@ -285,13 +231,6 @@ export async function sendMessageInConversation(
   }
 }
 
-/**
- * Poll for message status and response
- * GET /conversation/{conversation_id}/message/{message_id}
- * 
- * Response: { message_id, status, error, message, timestamp }
- * Status can be "Processing....." or "Complete"
- */
 export async function pollMessageStatus(
   conversationId: string,
   messageId: string
@@ -330,11 +269,11 @@ export async function pollMessageStatus(
 }
 
 /**
- * Poll message status until complete or timeout
- * Uses exponential backoff: 1s → 1.5s → 2.25s → 3.375s → 5s (max)
+ * Poll message status until complete with streaming callback
  * 
  * @param conversationId - Conversation ID
  * @param messageId - Message ID to poll
+ * @param onProgress - Callback for streaming progress updates
  * @param maxAttempts - Maximum number of polling attempts (default: 60)
  * @param initialDelay - Initial delay in ms (default: 1000)
  * @param maxDelay - Maximum delay in ms (default: 5000)
@@ -343,6 +282,7 @@ export async function pollMessageStatus(
 export async function pollUntilComplete(
   conversationId: string,
   messageId: string,
+  onProgress?: (partialMessage: string) => void,
   maxAttempts: number = 60,
   initialDelay: number = 1000,
   maxDelay: number = 5000
@@ -358,6 +298,10 @@ export async function pollUntilComplete(
 
       // Check if complete
       if (status.status === 'Complete') {
+        // Final update with complete message
+        if (onProgress && status.message) {
+          onProgress(status.message);
+        }
         return status;
       }
 
@@ -373,12 +317,10 @@ export async function pollUntilComplete(
     } catch (error) {
       console.error(`Polling attempt ${attempt} failed:`, error);
       
-      // If it's an auth error, don't retry
       if (error instanceof Error && error.message.includes('Authentication failed')) {
         throw error;
       }
       
-      // If it's not the last attempt, wait and retry
       if (attempt < maxAttempts) {
         await new Promise(resolve => setTimeout(resolve, delay));
         delay = Math.min(delay * 1.5, maxDelay);
@@ -395,12 +337,6 @@ export async function pollUntilComplete(
 // CONVERSATION MESSAGES
 // ============================================================================
 
-/**
- * Get all messages for a conversation from the API
- * GET /conversation/{conversation_id}
- * 
- * Response: { messages: [{ id, index, message_by, content }], error: "" }
- */
 export async function getConversationMessages(
   conversationId: string
 ): Promise<Message[]> {
@@ -435,15 +371,12 @@ export async function getConversationMessages(
 
     const data = await response.json();
 
-    // Check for API error
     if (data.error) {
       console.error('API returned error:', data.error);
       return [];
     }
 
-    // Transform API response to our Message format
     const messages: Message[] = (data.messages || []).map((msg: any) => {
-      // Map message_by to role
       const role = msg.message_by === 'user' ? 'user' : 'assistant';
       
       return {
@@ -458,7 +391,6 @@ export async function getConversationMessages(
       };
     });
 
-    // Sort by index to maintain message order
     messages.sort((a, b) => (a.index || 0) - (b.index || 0));
 
     console.log(`Loaded ${messages.length} messages for conversation ${conversationId}`);
@@ -470,12 +402,9 @@ export async function getConversationMessages(
 }
 
 // ============================================================================
-// LOCAL STORAGE HELPERS (for caching messages)
+// LOCAL STORAGE HELPERS
 // ============================================================================
 
-/**
- * Store message locally in localStorage
- */
 export function storeMessageLocally(conversationId: string, message: Message): void {
   if (typeof window === 'undefined') return;
 
@@ -487,9 +416,6 @@ export function storeMessageLocally(conversationId: string, message: Message): v
   localStorage.setItem(key, JSON.stringify(messages));
 }
 
-/**
- * Get messages for a conversation from localStorage
- */
 export function getLocalMessages(conversationId: string): Message[] {
   if (typeof window === 'undefined') return [];
 
@@ -499,9 +425,6 @@ export function getLocalMessages(conversationId: string): Message[] {
   return existing ? JSON.parse(existing) : [];
 }
 
-/**
- * Clear messages for a conversation from localStorage
- */
 export function clearLocalMessages(conversationId: string): void {
   if (typeof window === 'undefined') return;
 

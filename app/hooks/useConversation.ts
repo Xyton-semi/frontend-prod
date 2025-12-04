@@ -30,6 +30,73 @@ interface UseConversationResult {
   clearError: () => void;
 }
 
+/**
+ * Simulate typing effect by gradually revealing text
+ * IMPROVED VERSION with better control
+ */
+function useStreamingText(
+  messageId: string,
+  fullText: string,
+  onUpdate: (partial: string, isDone: boolean) => void,
+  speed: number = 15
+) {
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const indexRef = useRef(0);
+  const isCancelledRef = useRef(false);
+
+  const startStreaming = useCallback(() => {
+    console.log('🎬 Starting stream for message:', messageId, 'Length:', fullText.length);
+    isCancelledRef.current = false;
+    indexRef.current = 0;
+
+    const reveal = () => {
+      if (isCancelledRef.current) {
+        console.log('❌ Stream cancelled:', messageId);
+        return;
+      }
+
+      if (indexRef.current < fullText.length) {
+        // Reveal in chunks of 1-3 characters
+        const chunkSize = Math.min(
+          Math.max(1, Math.floor(Math.random() * 3) + 1),
+          fullText.length - indexRef.current
+        );
+        indexRef.current += chunkSize;
+        
+        const partial = fullText.substring(0, indexRef.current);
+        console.log('📝 Streaming:', messageId, `(${indexRef.current}/${fullText.length})`);
+        
+        onUpdate(partial, false);
+        
+        timeoutRef.current = setTimeout(reveal, speed);
+      } else {
+        console.log('✅ Stream complete:', messageId);
+        onUpdate(fullText, true);
+      }
+    };
+
+    // Start the reveal process
+    reveal();
+  }, [messageId, fullText, onUpdate, speed]);
+
+  const cancelStreaming = useCallback(() => {
+    console.log('🛑 Cancelling stream:', messageId);
+    isCancelledRef.current = true;
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, [messageId]);
+
+  useEffect(() => {
+    return () => {
+      cancelStreaming();
+    };
+  }, [cancelStreaming]);
+
+  return { startStreaming, cancelStreaming };
+}
+
 export function useConversation(): UseConversationResult {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
@@ -38,19 +105,17 @@ export function useConversation(): UseConversationResult {
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Use ref to track if we're currently polling to prevent duplicate polls
   const pollingRef = useRef<Set<string>>(new Set());
+  const streamingControllers = useRef<Map<string, () => void>>(new Map());
 
   /**
    * Load all conversations for the user
    */
   const loadConversations = useCallback(async () => {
-    // Check if user is authenticated first
     const accessToken = typeof window !== 'undefined' ? sessionStorage.getItem('accessToken') : null;
     const userEmail = typeof window !== 'undefined' ? sessionStorage.getItem('userEmail') : null;
     
     if (!accessToken || !userEmail) {
-      // User not authenticated, don't try to load conversations
       setConversations([]);
       setIsLoading(false);
       return;
@@ -67,7 +132,6 @@ export function useConversation(): UseConversationResult {
       setError(message);
       console.error('Error loading conversations:', err);
       
-      // If authentication error, clear the error since user needs to log in
       if (message.includes('authentication') || message.includes('log in')) {
         setError(null);
       }
@@ -78,29 +142,24 @@ export function useConversation(): UseConversationResult {
 
   /**
    * Load messages for a specific conversation
-   * First tries to load from API, falls back to localStorage
    */
   const loadMessages = useCallback(async (conversationId: string) => {
     try {
-      // Try to load from API first
       const apiMessages = await getConversationMessages(conversationId);
       
       if (apiMessages.length > 0) {
         setMessages(apiMessages);
         
-        // Update localStorage with fresh data
         if (typeof window !== 'undefined') {
           const key = `conversation_${conversationId}`;
           localStorage.setItem(key, JSON.stringify(apiMessages));
         }
       } else {
-        // Fallback to localStorage if API returns empty
         const localMessages = getLocalMessages(conversationId);
         setMessages(localMessages);
       }
     } catch (error) {
       console.error('Error loading messages from API, using local cache:', error);
-      // Fallback to localStorage on error
       const localMessages = getLocalMessages(conversationId);
       setMessages(localMessages);
     }
@@ -122,11 +181,9 @@ export function useConversation(): UseConversationResult {
     setError(null);
 
     try {
-      // Start new conversation
       const response = await startNewConversation(initialMessage);
       const { conversation_id, message_id, timestamp } = response;
 
-      // Add user message to local state
       const userMessage: Message = {
         id: `user_${Date.now()}`,
         conversation_id,
@@ -140,7 +197,6 @@ export function useConversation(): UseConversationResult {
       setMessages([userMessage]);
       setCurrentConversationId(conversation_id);
 
-      // Add assistant message placeholder
       const assistantMessage: Message = {
         id: message_id,
         conversation_id,
@@ -153,10 +209,8 @@ export function useConversation(): UseConversationResult {
       storeMessageLocally(conversation_id, assistantMessage);
       setMessages(prev => [...prev, assistantMessage]);
 
-      // Start polling for response
       pollForResponse(conversation_id, message_id);
 
-      // Reload conversations list
       await loadConversations();
 
       return conversation_id;
@@ -183,11 +237,9 @@ export function useConversation(): UseConversationResult {
     setError(null);
 
     try {
-      // Send message
       const response = await sendMessageInConversation(currentConversationId, messageContent);
       const { message_id, timestamp } = response;
 
-      // Add user message to local state
       const userMessage: Message = {
         id: `user_${Date.now()}`,
         conversation_id: currentConversationId,
@@ -200,7 +252,6 @@ export function useConversation(): UseConversationResult {
       storeMessageLocally(currentConversationId, userMessage);
       setMessages(prev => [...prev, userMessage]);
 
-      // Add assistant message placeholder
       const assistantMessage: Message = {
         id: message_id,
         conversation_id: currentConversationId,
@@ -213,7 +264,6 @@ export function useConversation(): UseConversationResult {
       storeMessageLocally(currentConversationId, assistantMessage);
       setMessages(prev => [...prev, assistantMessage]);
 
-      // Start polling for response
       pollForResponse(currentConversationId, message_id);
 
     } catch (err) {
@@ -226,47 +276,42 @@ export function useConversation(): UseConversationResult {
   }, [currentConversationId]);
 
   /**
-   * Poll for message response
+   * Poll for message response with streaming effect
+   * IMPROVED VERSION
    */
   const pollForResponse = useCallback(async (conversationId: string, messageId: string) => {
-    // Prevent duplicate polling for the same message
     const pollKey = `${conversationId}_${messageId}`;
     if (pollingRef.current.has(pollKey)) {
+      console.log('⚠️ Already polling:', pollKey);
       return;
     }
 
     pollingRef.current.add(pollKey);
+    console.log('🔄 Starting poll for:', messageId);
 
     try {
       const status = await pollUntilComplete(conversationId, messageId);
+      console.log('✅ Poll complete! Message length:', status.message.length);
 
-      // Update message with response
-      setMessages(prev => {
-        return prev.map(msg => {
-          if (msg.id === messageId) {
-            const updatedMessage: Message = {
-              ...msg,
-              content: status.message,
-              status: 'complete',
-              timestamp: status.timestamp,
-            };
-            
-            // Update local storage
-            storeMessageLocally(conversationId, updatedMessage);
-            
-            return updatedMessage;
-          }
-          return msg;
-        });
-      });
+      // Cancel any existing stream for this message
+      const existingCancel = streamingControllers.current.get(messageId);
+      if (existingCancel) {
+        console.log('🛑 Cancelling existing stream');
+        existingCancel();
+        streamingControllers.current.delete(messageId);
+      }
 
-      // Reload conversations to update message count
+      // Start streaming effect with a slight delay to ensure React has rendered
+      setTimeout(() => {
+        console.log('🎬 Initiating streaming for:', messageId);
+        streamMessage(conversationId, messageId, status.message, status.timestamp);
+      }, 50);
+
       await loadConversations();
 
     } catch (err) {
-      console.error('Error polling for response:', err);
+      console.error('❌ Error polling for response:', err);
       
-      // Update message to show error
       setMessages(prev => {
         return prev.map(msg => {
           if (msg.id === messageId) {
@@ -283,6 +328,83 @@ export function useConversation(): UseConversationResult {
       pollingRef.current.delete(pollKey);
     }
   }, [loadConversations]);
+
+  /**
+   * Stream a message character by character
+   */
+  const streamMessage = useCallback((
+    conversationId: string,
+    messageId: string,
+    fullText: string,
+    timestamp: string
+  ) => {
+    console.log('📺 Setting up stream for:', messageId);
+    
+    let currentIndex = 0;
+    let isCancelled = false;
+
+    const updateMessage = (content: string, isComplete: boolean) => {
+      if (isCancelled) return;
+
+      setMessages(prev => {
+        return prev.map(msg => {
+          if (msg.id === messageId) {
+            const updatedMessage: Message = {
+              ...msg,
+              content,
+              status: isComplete ? 'complete' : 'processing',
+              timestamp: isComplete ? timestamp : msg.timestamp,
+            };
+
+            if (isComplete) {
+              console.log('💾 Storing completed message:', messageId);
+              storeMessageLocally(conversationId, updatedMessage);
+            }
+
+            return updatedMessage;
+          }
+          return msg;
+        });
+      });
+    };
+
+    const streamChunk = () => {
+      if (isCancelled) {
+        console.log('Stream cancelled');
+        return;
+      }
+
+      if (currentIndex < fullText.length) {
+        // Reveal 1-3 characters at a time
+        const chunkSize = Math.min(
+          Math.max(1, Math.floor(Math.random() * 3) + 1),
+          fullText.length - currentIndex
+        );
+        currentIndex += chunkSize;
+
+        const partial = fullText.substring(0, currentIndex);
+        updateMessage(partial, false);
+
+        // Schedule next chunk
+        setTimeout(streamChunk, 15); // 15ms between chunks
+      } else {
+        // Finished streaming
+        console.log('✨ Streaming finished for:', messageId);
+        updateMessage(fullText, true);
+        streamingControllers.current.delete(messageId);
+      }
+    };
+
+    // Start streaming
+    streamChunk();
+
+    // Store cancel function
+    const cancel = () => {
+      isCancelled = true;
+    };
+    streamingControllers.current.set(messageId, cancel);
+
+  }, []);
 
   /**
    * Clear error message
@@ -306,6 +428,17 @@ export function useConversation(): UseConversationResult {
       loadMessages(currentConversationId);
     }
   }, [currentConversationId, loadMessages]);
+
+  /**
+   * Cleanup streaming on unmount
+   */
+  useEffect(() => {
+    return () => {
+      console.log('🧹 Cleaning up streams');
+      streamingControllers.current.forEach(cancel => cancel());
+      streamingControllers.current.clear();
+    };
+  }, []);
 
   return {
     conversations,
