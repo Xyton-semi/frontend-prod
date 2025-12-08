@@ -4,24 +4,75 @@ import { useRouter } from 'next/navigation';
 import LeftSidebar from './LeftSidebar';
 import ChatMessages from './ChatMessages';
 import NewChatInput from './NewChatInput';
-import SchematicView from './views/SchematicView';
-import TestbenchView from './views/TestbenchView';
+import EditablePinBoundaryTable from './EditablePinBoundaryTable';
+import EditableRequirementsTable from './EditableRequirementsTable';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { useConversation } from '@/hooks/useConversation';
-import { Settings } from 'lucide-react';
+import { parseCSV } from '@/utils/data';
 
-type TabType = 'schematic' | 'testbench' | 'layout';
+// Helper functions for type-safe CSV parsing
+const parsePinBoundaryCSV = (text: string): PinBoundaryRow[] => {
+  return parseCSV(text) as unknown as PinBoundaryRow[];
+};
+
+const parseRequirementsCSV = (text: string): RequirementsRow[] => {
+  return parseCSV(text) as unknown as RequirementsRow[];
+};
+import { FileSpreadsheet, FileCheck } from 'lucide-react';
+
+type DataTabType = 'pin-boundary' | 'feasibility';
+
+interface PinBoundaryRow {
+  RowType: string;
+  Name: string;
+  PadConn: string;
+  Direction: string;
+  Function: string;
+  'Definition / Notes': string;
+  VoltageMin: string;
+  VoltageMax: string;
+  Units: string;
+  ESD_HBM_kV: string;
+  ESD_CDM_V: string;
+  Value: string;
+  ValueUnits: string;
+  Comments: string;
+}
+
+interface RequirementsRow {
+  'Spec Category': string;
+  Parameter: string;
+  Symbol: string;
+  'Definition / Test Condition': string;
+  'User Target Min': string;
+  'User Target Typ': string;
+  'User Target Max': string;
+  'Actual Min': string;
+  'Actual Typ': string;
+  'Actual Max': string;
+  Units: string;
+  'Physical Trade-off / Sensitivity': string;
+  Priority: string;
+  Difficulty: string;
+  'Comments / Pin Mapping': string;
+  'Specification Source': string;
+}
 
 /**
- * AppDashboard - Chat in Center, Right Panel with Views
- * Layout: Left Sidebar | Center Chat | Right Panel (SchematicView/TestbenchView)
+ * AppDashboard - Chat with Data Tables Above
+ * Layout: Left Sidebar | Center (Data Tables + Chat) | Right Panel
  */
 const AppDashboard = () => {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<TabType>('schematic');
+  const [activeDataTab, setActiveDataTab] = useState<DataTabType>('pin-boundary');
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
-  const [rightSidebarOpen, setRightSidebarOpen] = useState(true);
+  const [dataTablesVisible, setDataTablesVisible] = useState(true); // NEW: Toggle for tables
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  
+  // Data state
+  const [pinBoundaryData, setPinBoundaryData] = useState<PinBoundaryRow[]>([]);
+  const [requirementsData, setRequirementsData] = useState<RequirementsRow[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
 
   // Check authentication on mount
   useEffect(() => {
@@ -37,6 +88,48 @@ const AppDashboard = () => {
       setIsCheckingAuth(false);
     }
   }, [router]);
+
+  // Load CSV data
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoadingData(true);
+      try {
+        // Try loading from uploaded files first
+        const [pinRes, reqRes] = await Promise.all([
+          fetch('/mnt/user-data/uploads/step0_pin_boundary.csv').catch(() => null),
+          fetch('/mnt/user-data/uploads/step1_requirements.csv').catch(() => null)
+        ]);
+
+        // Load Pin/Boundary data
+        if (pinRes && pinRes.ok) {
+          const pinText = await pinRes.text();
+          setPinBoundaryData(parsePinBoundaryCSV(pinText));
+        } else {
+          // Fallback to public folder
+          const fallbackPin = await fetch('/step0_pin_boundary.csv');
+          const pinText = await fallbackPin.text();
+          setPinBoundaryData(parsePinBoundaryCSV(pinText));
+        }
+
+        // Load Requirements data
+        if (reqRes && reqRes.ok) {
+          const reqText = await reqRes.text();
+          setRequirementsData(parseRequirementsCSV(reqText));
+        } else {
+          // Fallback to public folder
+          const fallbackReq = await fetch('/step1_requirements.csv');
+          const reqText = await fallbackReq.text();
+          setRequirementsData(parseRequirementsCSV(reqText));
+        }
+      } catch (error) {
+        console.error('Error loading CSV data:', error);
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   // Use conversation hook
   const {
@@ -76,6 +169,21 @@ const AppDashboard = () => {
   };
 
   /**
+   * Handle data save callbacks
+   */
+  const handlePinBoundarySave = (data: PinBoundaryRow[]) => {
+    setPinBoundaryData(data);
+    localStorage.setItem('pinBoundaryData', JSON.stringify(data));
+    console.log('Pin/Boundary data saved:', data.length, 'rows');
+  };
+
+  const handleRequirementsSave = (data: RequirementsRow[]) => {
+    setRequirementsData(data);
+    localStorage.setItem('requirementsData', JSON.stringify(data));
+    console.log('Requirements data saved:', data.length, 'rows');
+  };
+
+  /**
    * Handle checking for initial message from welcome page
    */
   useEffect(() => {
@@ -89,6 +197,21 @@ const AppDashboard = () => {
       });
     }
   }, [createNewConversation, isCheckingAuth]);
+
+  /**
+   * Keyboard shortcut: Ctrl/Cmd + D to toggle data tables
+   */
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
+        e.preventDefault();
+        setDataTablesVisible(prev => !prev);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   /**
    * Auto-clear error after 5 seconds
@@ -156,114 +279,139 @@ const AppDashboard = () => {
         isLoadingConversations={isLoading}
       />
 
-      {/* Center - Chat Interface */}
-      <div className="flex-1 flex flex-col bg-gray-950">
-        {/* Chat Messages */}
-        <ChatMessages messages={messages} isLoading={isSending} />
-        
-        {/* Chat Input */}
-        <NewChatInput 
-          onSubmit={handleSendMessage}
-          disabled={false}
-          isLoading={isSending}
-        />
-      </div>
+      {/* Center - Data Tables + Chat Interface */}
+      <div className="flex-1 flex flex-col bg-gray-950 min-w-0">
+        {/* Data Tables Section - Collapsible */}
+        {dataTablesVisible && (
+          <div className="flex-shrink-0 border-b border-gray-800 bg-gray-900">
+            {/* Tab Navigation */}
+            <div className="flex items-center border-b border-gray-800 px-6">
+              <button
+                onClick={() => setActiveDataTab('pin-boundary')}
+                className={`
+                  flex items-center gap-2 px-4 py-3 font-mono text-xs uppercase tracking-wider 
+                  transition-all relative
+                  ${activeDataTab === 'pin-boundary' 
+                    ? 'text-red-500 bg-gray-800' 
+                    : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
+                  }
+                `}
+              >
+                <FileSpreadsheet size={16} />
+                Pin & Boundary
+                {activeDataTab === 'pin-boundary' && (
+                  <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></div>
+                )}
+              </button>
 
-      {/* Right Sidebar - Configuration Panel */}
-      <div className={`
-        ${rightSidebarOpen ? 'w-80' : 'w-0'} 
-        flex-shrink-0 bg-gray-900 border-l border-gray-800 
-        flex flex-col transition-all duration-300 ease-in-out overflow-hidden
-      `}>
-        {/* Header */}
-        <div className="p-6 flex-shrink-0 border-b border-gray-800">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-mono font-bold text-gray-100 uppercase tracking-wider">
-              Configuration
-            </h2>
-            <button 
-              onClick={() => setRightSidebarOpen(false)}
-              className="text-gray-500 hover:text-gray-300 transition-colors"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+              <button
+                onClick={() => setActiveDataTab('feasibility')}
+                className={`
+                  flex items-center gap-2 px-4 py-3 font-mono text-xs uppercase tracking-wider 
+                  transition-all relative
+                  ${activeDataTab === 'feasibility' 
+                    ? 'text-red-500 bg-gray-800' 
+                    : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
+                  }
+                `}
+              >
+                <FileCheck size={16} />
+                Feasibility Check
+                {activeDataTab === 'feasibility' && (
+                  <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></div>
+                )}
+              </button>
 
-          {/* Tabs */}
-          <div className="flex space-x-6 border-b border-gray-800">
-            <button 
-              onClick={() => setActiveTab('schematic')}
-              className={`pb-3 font-mono text-xs uppercase tracking-wider transition-colors relative ${
-                activeTab === 'schematic' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              Schematic
-              {activeTab === 'schematic' && (
-                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></div>
-              )}
-            </button>
-            <button 
-              onClick={() => setActiveTab('testbench')}
-              className={`pb-3 font-mono text-xs uppercase tracking-wider transition-colors relative ${
-                activeTab === 'testbench' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              Test
-              {activeTab === 'testbench' && (
-                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></div>
-              )}
-            </button>
-            <button 
-              onClick={() => setActiveTab('layout')}
-              className={`pb-3 font-mono text-xs uppercase tracking-wider transition-colors relative ${
-                activeTab === 'layout' ? 'text-gray-100' : 'text-gray-500 hover:text-gray-300'
-              }`}
-            >
-              Layout
-              {activeTab === 'layout' && (
-                <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></div>
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 bg-gray-900 scrollbar-thin scrollbar-thumb-gray-700">
-          {activeTab === 'schematic' && <SchematicView />}
-          {activeTab === 'testbench' && <TestbenchView />}
-          {activeTab === 'layout' && (
-            <div className="flex flex-col items-center justify-center h-full">
-              <div className="text-center space-y-4">
-                <Settings size={48} className="mx-auto text-gray-700" />
-                <h3 className="font-mono text-sm font-bold text-gray-300 uppercase tracking-wider">
-                  Layout Tools
-                </h3>
-                <p className="font-mono text-xs text-gray-600 max-w-xs">
-                  Layout generation and visualization coming soon
-                </p>
-                <div className="inline-block px-4 py-2 bg-gray-800 border border-gray-700 mt-4">
-                  <span className="font-mono text-[10px] text-gray-500 uppercase tracking-wider">
-                    Coming Soon
-                  </span>
-                </div>
+              <div className="ml-auto flex items-center gap-4">
+                <span className="text-xs font-mono text-gray-600 uppercase">
+                  {activeDataTab === 'pin-boundary' 
+                    ? `${pinBoundaryData.length} rows` 
+                    : `${requirementsData.length} specs`}
+                </span>
+                
+                {/* Hide/Show Toggle */}
+                <button
+                  onClick={() => setDataTablesVisible(false)}
+                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded transition-colors"
+                  title="Hide data tables"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  </svg>
+                  Hide
+                </button>
               </div>
             </div>
-          )}
+
+            {/* Table Content */}
+            <div className="h-[40vh] overflow-hidden bg-gray-900">
+              {isLoadingData ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto mb-2"></div>
+                    <p className="text-sm font-mono text-gray-500 uppercase tracking-wider">
+                      Loading data...
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {activeDataTab === 'pin-boundary' && (
+                    <EditablePinBoundaryTable
+                      initialData={pinBoundaryData}
+                      onSave={handlePinBoundarySave}
+                    />
+                  )}
+
+                  {activeDataTab === 'feasibility' && (
+                    <EditableRequirementsTable
+                      initialData={requirementsData}
+                      onSave={handleRequirementsSave}
+                    />
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Show Tables Button - When Hidden */}
+        {!dataTablesVisible && (
+          <div className="flex-shrink-0 border-b border-gray-800 bg-gray-900">
+            <div className="px-6 py-2 flex items-center justify-between">
+              <span className="text-xs font-mono text-gray-600 uppercase tracking-wider">
+                Data Tables Hidden
+              </span>
+              <button
+                onClick={() => setDataTablesVisible(true)}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono text-red-500 hover:text-red-400 hover:bg-gray-800 rounded transition-colors"
+                title="Show data tables (Ctrl/Cmd + D)"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                Show Tables
+                <span className="ml-2 px-1.5 py-0.5 bg-gray-800 rounded text-[10px] text-gray-500">
+                  ⌘D
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Chat Section */}
+        <div className="flex-1 flex flex-col min-h-0 bg-gray-950">
+          {/* Chat Messages */}
+          <ChatMessages messages={messages} isLoading={isSending} />
+          
+          {/* Chat Input */}
+          <NewChatInput 
+            onSubmit={handleSendMessage}
+            disabled={false}
+            isLoading={isSending}
+          />
         </div>
       </div>
-
-      {/* Toggle Right Sidebar Button (when closed) */}
-      {!rightSidebarOpen && (
-        <button
-          onClick={() => setRightSidebarOpen(true)}
-          className="absolute right-0 top-1/2 transform -translate-y-1/2 bg-gray-900 border-l border-t border-b border-gray-800 p-2 hover:bg-gray-800 transition-colors"
-          title="Show configuration panel"
-        >
-          <Settings size={20} className="text-gray-500" />
-        </button>
-      )}
     </div>
   );
 };
