@@ -73,6 +73,8 @@ const AppDashboard = () => {
   const [pinBoundaryData, setPinBoundaryData] = useState<PinBoundaryRow[]>([]);
   const [requirementsData, setRequirementsData] = useState<RequirementsRow[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [tablesModified, setTablesModified] = useState(false);
+  const [lastModifiedTime, setLastModifiedTime] = useState<string>('');
 
   // Check authentication on mount
   useEffect(() => {
@@ -154,14 +156,64 @@ const AppDashboard = () => {
   };
 
   /**
-   * Handle sending a message
+   * Format table data for AI context
+   */
+  const formatTableDataForContext = () => {
+    const context = [];
+    
+    // Add Pin/Boundary data summary with detailed voltage info
+    if (pinBoundaryData.length > 0) {
+      context.push(`\n[CURRENT PIN & BOUNDARY DATA]`);
+      context.push(`Total pins: ${pinBoundaryData.length}`);
+      pinBoundaryData.slice(0, 5).forEach((row, idx) => {
+        // Include voltage ranges if available
+        const voltageInfo = row.VoltageMin || row.VoltageMax 
+          ? ` (${row.VoltageMin || '-'} to ${row.VoltageMax || '-'} ${row.Units || 'V'})` 
+          : '';
+        const directionInfo = row.Direction ? ` [${row.Direction}]` : '';
+        context.push(`${idx + 1}. ${row.RowType}: ${row.Name}${voltageInfo}${directionInfo} - ${row.Function || 'N/A'}`);
+      });
+      if (pinBoundaryData.length > 5) {
+        context.push(`... and ${pinBoundaryData.length - 5} more rows`);
+      }
+    }
+    
+    // Add Requirements data summary
+    if (requirementsData.length > 0) {
+      context.push(`\n[CURRENT REQUIREMENTS DATA]`);
+      context.push(`Total specifications: ${requirementsData.length}`);
+      requirementsData.slice(0, 5).forEach((row, idx) => {
+        const minVal = row['User Target Min'] || row['Actual Min'] || '-';
+        const maxVal = row['User Target Max'] || row['Actual Max'] || '-';
+        const typVal = row['User Target Typ'] || row['Actual Typ'];
+        const valueRange = typVal 
+          ? `${minVal}/${typVal}/${maxVal}`
+          : `${minVal}-${maxVal}`;
+        context.push(`${idx + 1}. ${row.Parameter} (${row.Symbol}): ${valueRange} ${row.Units} [Priority: ${row.Priority}]`);
+      });
+      if (requirementsData.length > 5) {
+        context.push(`... and ${requirementsData.length - 5} more specifications`);
+      }
+    }
+    
+    return context.length > 0 ? context.join('\n') : '';
+  };
+
+  /**
+   * Handle sending a message with table context
    */
   const handleSendMessage = async (messageContent: string) => {
     try {
+      // Append table data context to the message
+      const tableContext = formatTableDataForContext();
+      const messageWithContext = tableContext 
+        ? `${messageContent}\n\n${tableContext}\n\nNote: Please consider the current Pin/Boundary and Requirements data shown above in your response.`
+        : messageContent;
+      
       if (!currentConversationId) {
-        await createNewConversation(messageContent);
+        await createNewConversation(messageWithContext);
       } else {
-        await sendMessage(messageContent);
+        await sendMessage(messageWithContext);
       }
     } catch (err) {
       console.error('Failed to send message:', err);
@@ -174,12 +226,16 @@ const AppDashboard = () => {
   const handlePinBoundarySave = (data: PinBoundaryRow[]) => {
     setPinBoundaryData(data);
     localStorage.setItem('pinBoundaryData', JSON.stringify(data));
+    setTablesModified(true);
+    setLastModifiedTime(new Date().toLocaleString());
     console.log('Pin/Boundary data saved:', data.length, 'rows');
   };
 
   const handleRequirementsSave = (data: RequirementsRow[]) => {
     setRequirementsData(data);
     localStorage.setItem('requirementsData', JSON.stringify(data));
+    setTablesModified(true);
+    setLastModifiedTime(new Date().toLocaleString());
     console.log('Requirements data saved:', data.length, 'rows');
   };
 
@@ -323,6 +379,15 @@ const AppDashboard = () => {
               </button>
 
               <div className="ml-auto flex items-center gap-4">
+                {tablesModified && lastModifiedTime && (
+                  <div className="flex items-center gap-2 px-3 py-1 bg-green-900/20 border border-green-800 rounded">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    <span className="text-xs font-mono text-green-300 uppercase tracking-wider">
+                      Updated: {lastModifiedTime.split(',')[1]?.trim() || lastModifiedTime}
+                    </span>
+                  </div>
+                )}
+                
                 <span className="text-xs font-mono text-gray-600 uppercase">
                   {activeDataTab === 'pin-boundary' 
                     ? `${pinBoundaryData.length} rows` 
