@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Save, X, Plus, Trash2, Download } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Save, X, Plus, Trash2, Download, Filter, ArrowUpDown } from 'lucide-react';
 
 interface PinBoundaryRow {
   RowType: string;
@@ -24,6 +24,9 @@ interface EditablePinBoundaryTableProps {
   onCancel?: () => void;
 }
 
+type SortDirection = 'asc' | 'desc' | null;
+type FilterConfig = { [key: string]: string };
+
 const EditablePinBoundaryTable: React.FC<EditablePinBoundaryTableProps> = ({
   initialData,
   onSave,
@@ -32,17 +35,117 @@ const EditablePinBoundaryTable: React.FC<EditablePinBoundaryTableProps> = ({
   const [data, setData] = useState<PinBoundaryRow[]>(initialData);
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; field: string } | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
+  
+  // Excel-like features
+  const [filters, setFilters] = useState<FilterConfig>({});
+  const [sortColumn, setSortColumn] = useState<keyof PinBoundaryRow | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  const [showFilterRow, setShowFilterRow] = useState(false);
+  const [formulaMode, setFormulaMode] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     setData(initialData);
   }, [initialData]);
 
+  // Evaluate Excel-like formulas
+  const evaluateFormula = (formula: string, rowIndex: number): string => {
+    try {
+      const expr = formula.slice(1).trim();
+      
+      if (expr.toUpperCase().startsWith('SUM(')) {
+        const match = expr.match(/SUM\(([^)]+)\)/i);
+        if (match) {
+          const values = match[1].split(',').map(v => parseFloat(v.trim()) || 0);
+          return values.reduce((a, b) => a + b, 0).toString();
+        }
+      }
+      
+      if (expr.toUpperCase().startsWith('AVERAGE(')) {
+        const match = expr.match(/AVERAGE\(([^)]+)\)/i);
+        if (match) {
+          const values = match[1].split(',').map(v => parseFloat(v.trim()) || 0);
+          const sum = values.reduce((a, b) => a + b, 0);
+          return (sum / values.length).toFixed(2);
+        }
+      }
+      
+      const sanitized = expr.replace(/[^0-9+\-*/.() ]/g, '');
+      const result = eval(sanitized);
+      return result.toString();
+    } catch (error) {
+      return '#ERROR';
+    }
+  };
+
   const handleCellEdit = (rowIndex: number, field: keyof PinBoundaryRow, value: string) => {
     const newData = [...data];
+    
+    if (value.startsWith('=')) {
+      const cellKey = `${rowIndex}-${field}`;
+      setFormulaMode(prev => ({ ...prev, [cellKey]: true }));
+    }
+    
     newData[rowIndex] = { ...newData[rowIndex], [field]: value };
     setData(newData);
     setHasChanges(true);
   };
+
+  const getDisplayValue = (row: PinBoundaryRow, field: keyof PinBoundaryRow, rowIndex: number): string => {
+    const value = row[field];
+    const cellKey = `${rowIndex}-${field}`;
+    
+    if (typeof value === 'string' && value.startsWith('=') && !formulaMode[cellKey]) {
+      return evaluateFormula(value, rowIndex);
+    }
+    return value;
+  };
+
+  const handleSort = (column: keyof PinBoundaryRow) => {
+    if (sortColumn === column) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortDirection(null);
+        setSortColumn(null);
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const filteredAndSortedData = useMemo(() => {
+    let result = [...data];
+
+    Object.entries(filters).forEach(([key, filterValue]) => {
+      if (filterValue) {
+        result = result.filter(row => {
+          const cellValue = row[key as keyof PinBoundaryRow]?.toString().toLowerCase() || '';
+          return cellValue.includes(filterValue.toLowerCase());
+        });
+      }
+    });
+
+    if (sortColumn && sortDirection) {
+      result.sort((a, b) => {
+        const aVal = a[sortColumn]?.toString() || '';
+        const bVal = b[sortColumn]?.toString() || '';
+        
+        const aNum = parseFloat(aVal);
+        const bNum = parseFloat(bVal);
+        
+        if (!isNaN(aNum) && !isNaN(bNum)) {
+          return sortDirection === 'asc' ? aNum - bNum : bNum - aNum;
+        }
+        
+        return sortDirection === 'asc' 
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      });
+    }
+
+    return result;
+  }, [data, filters, sortColumn, sortDirection]);
 
   const handleAddRow = () => {
     const newRow: PinBoundaryRow = {
@@ -66,8 +169,7 @@ const EditablePinBoundaryTable: React.FC<EditablePinBoundaryTableProps> = ({
   };
 
   const handleDeleteRow = (rowIndex: number) => {
-    const newData = data.filter((_, index) => index !== rowIndex);
-    setData(newData);
+    setData(data.filter((_, index) => index !== rowIndex));
     setHasChanges(true);
   };
 
@@ -101,15 +203,23 @@ const EditablePinBoundaryTable: React.FC<EditablePinBoundaryTableProps> = ({
       )
     ].join('\n');
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `pin_boundary_${new Date().toISOString().split('T')[0]}.csv`;
+    a.download = 'pin_boundary_data.csv';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
+  };
+
+  const handleFilterChange = (column: keyof PinBoundaryRow, value: string) => {
+    setFilters(prev => ({ ...prev, [column]: value }));
+  };
+
+  const clearFilters = () => {
+    setFilters({});
   };
 
   const getRowTypeColor = (rowType: string) => {
@@ -131,6 +241,9 @@ const EditablePinBoundaryTable: React.FC<EditablePinBoundaryTableProps> = ({
     field: keyof PinBoundaryRow,
     isEditing: boolean
   ) => {
+    const cellKey = `${rowIndex}-${field}`;
+    const isFormula = row[field]?.toString().startsWith('=');
+
     if (isEditing) {
       if (field === 'RowType') {
         return (
@@ -186,9 +299,15 @@ const EditablePinBoundaryTable: React.FC<EditablePinBoundaryTableProps> = ({
           type="text"
           value={row[field]}
           onChange={(e) => handleCellEdit(rowIndex, field, e.target.value)}
-          onBlur={() => setEditingCell(null)}
+          onBlur={() => {
+            setEditingCell(null);
+            setFormulaMode(prev => ({ ...prev, [cellKey]: false }));
+          }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') setEditingCell(null);
+            if (e.key === 'Enter') {
+              setEditingCell(null);
+              setFormulaMode(prev => ({ ...prev, [cellKey]: false }));
+            }
             if (e.key === 'Escape') {
               setData(initialData);
               setEditingCell(null);
@@ -201,12 +320,9 @@ const EditablePinBoundaryTable: React.FC<EditablePinBoundaryTableProps> = ({
     }
 
     return (
-      <div
-        onClick={() => setEditingCell({ rowIndex, field })}
-        className="cursor-pointer hover:bg-gray-700/50 px-2 py-1 rounded min-h-[24px] text-xs flex items-center"
-        title="Click to edit"
-      >
-        {row[field] || <span className="text-gray-600 italic">Empty</span>}
+      <div className={`text-xs text-gray-300 ${isFormula ? 'font-mono' : ''}`}>
+        {getDisplayValue(row, field, rowIndex) || '—'}
+        {isFormula && <span className="ml-1 text-[10px] text-blue-400">ƒ</span>}
       </div>
     );
   };
@@ -278,70 +394,117 @@ const EditablePinBoundaryTable: React.FC<EditablePinBoundaryTableProps> = ({
             className="flex items-center gap-1 px-2 py-1 text-xs font-mono text-blue-400 hover:text-blue-300 hover:bg-gray-800 rounded transition-colors"
           >
             <Plus size={14} />
-            Add Row
+            Add
           </button>
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-1 px-2 py-1 text-xs font-mono text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded transition-colors"
+          >
+            <Download size={14} />
+            Export
+          </button>
+          <div className="h-4 w-px bg-gray-700 mx-1"></div>
+          <button
+            onClick={() => setShowFilterRow(!showFilterRow)}
+            className={`flex items-center gap-1 px-2 py-1 text-xs font-mono rounded transition-colors ${
+              showFilterRow 
+                ? 'text-red-400 bg-gray-800' 
+                : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'
+            }`}
+          >
+            <Filter size={14} />
+            Filter
+          </button>
+          {Object.keys(filters).length > 0 && (
+            <button
+              onClick={clearFilters}
+              className="text-xs font-mono text-gray-500 hover:text-gray-300"
+            >
+              Clear ({Object.values(filters).filter(Boolean).length})
+            </button>
+          )}
         </div>
-        <button
-          onClick={handleExport}
-          className="flex items-center gap-1 px-2 py-1 text-xs font-mono text-gray-400 hover:text-gray-200 hover:bg-gray-800 rounded transition-colors"
-        >
-          <Download size={14} />
-          Export CSV
-        </button>
+        <span className="text-xs font-mono text-gray-500">
+          {filteredAndSortedData.length} rows
+        </span>
       </div>
 
       {/* Table */}
       <div className="flex-1 overflow-auto">
-        <table className="w-full border-collapse text-xs">
-          <thead className="bg-gray-800 sticky top-0 z-10">
-            <tr>
-              <th className="border border-gray-700 px-2 py-2 text-left font-mono text-gray-300 w-8">#</th>
+        <table className="w-full text-left border-collapse">
+          <thead className="sticky top-0 bg-gray-800 z-10">
+            <tr className="border-b border-gray-700">
               {headers.map((header) => (
                 <th
                   key={header}
-                  className="border border-gray-700 px-2 py-2 text-left font-mono text-gray-300"
+                  onClick={() => handleSort(header)}
+                  className="px-3 py-2 text-xs font-mono text-gray-400 uppercase tracking-wider cursor-pointer hover:text-gray-200 transition-colors"
                 >
-                  {headerLabels[header]}
+                  <div className="flex items-center gap-1">
+                    {headerLabels[header]}
+                    {sortColumn === header && (
+                      <span className="text-red-400">
+                        {sortDirection === 'asc' ? '↑' : '↓'}
+                      </span>
+                    )}
+                  </div>
                 </th>
               ))}
-              <th className="border border-gray-700 px-2 py-2 text-center font-mono text-gray-300 w-12">
-                Del
+              <th className="px-3 py-2 text-xs font-mono text-gray-400 uppercase tracking-wider w-16">
+                
               </th>
             </tr>
-          </thead>
-          <tbody>
-            {data.map((row, rowIndex) => (
-              <tr
-                key={rowIndex}
-                className={`hover:bg-gray-800/50 ${getRowTypeColor(row.RowType)}`}
-              >
-                <td className="border border-gray-800 px-2 py-1 text-center text-gray-500 font-mono">
-                  {rowIndex + 1}
-                </td>
-                {headers.map((field) => (
-                  <td
-                    key={field}
-                    className="border border-gray-800 text-gray-300"
-                  >
-                    {renderCell(
-                      row,
-                      rowIndex,
-                      field,
-                      editingCell?.rowIndex === rowIndex && editingCell?.field === field
-                    )}
-                  </td>
+            
+            {/* Filter Row */}
+            {showFilterRow && (
+              <tr className="border-b border-gray-700 bg-gray-850">
+                {headers.map((header) => (
+                  <th key={header} className="px-3 py-1">
+                    <input
+                      type="text"
+                      placeholder="..."
+                      value={filters[header] || ''}
+                      onChange={(e) => handleFilterChange(header, e.target.value)}
+                      className="w-full px-2 py-1 text-xs bg-gray-900 text-gray-300 border border-gray-700 rounded focus:outline-none focus:border-red-500"
+                    />
+                  </th>
                 ))}
-                <td className="border border-gray-800 px-2 py-1 text-center">
-                  <button
-                    onClick={() => handleDeleteRow(rowIndex)}
-                    className="p-1 text-red-500 hover:text-red-400 hover:bg-red-900/30 rounded transition-colors"
-                    title="Delete row"
-                  >
-                    <Trash2 size={12} />
-                  </button>
-                </td>
+                <th></th>
               </tr>
-            ))}
+            )}
+          </thead>
+
+          <tbody>
+            {filteredAndSortedData.map((row, index) => {
+              const originalIndex = data.findIndex(r => r === row);
+              return (
+                <tr
+                  key={originalIndex}
+                  className={`border-b border-gray-800 ${getRowTypeColor(row.RowType)} hover:bg-gray-800/50 transition-colors`}
+                >
+                  {headers.map((header) => {
+                    const isEditing = editingCell?.rowIndex === originalIndex && editingCell?.field === header;
+                    return (
+                      <td
+                        key={header}
+                        className="px-3 py-2 cursor-pointer"
+                        onClick={() => !isEditing && setEditingCell({ rowIndex: originalIndex, field: header })}
+                      >
+                        {renderCell(row, originalIndex, header, isEditing)}
+                      </td>
+                    );
+                  })}
+                  <td className="px-3 py-2">
+                    <button
+                      onClick={() => handleDeleteRow(originalIndex)}
+                      className="text-gray-500 hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -20,7 +20,7 @@ const parseRequirementsCSV = (text: string): RequirementsRow[] => {
 };
 import { FileSpreadsheet, FileCheck } from 'lucide-react';
 
-type DataTabType = 'pin-boundary' | 'feasibility';
+type DataTabType = 'pin-boundary' | 'feasibility' | 'simulation-plan';
 
 interface PinBoundaryRow {
   RowType: string;
@@ -66,12 +66,14 @@ const AppDashboard = () => {
   const router = useRouter();
   const [activeDataTab, setActiveDataTab] = useState<DataTabType>('pin-boundary');
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
-  const [dataTablesVisible, setDataTablesVisible] = useState(true); // NEW: Toggle for tables
+  const [dataTablesVisible, setDataTablesVisible] = useState(false); // CHANGED: Default to hidden
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [includeTablesInContext, setIncludeTablesInContext] = useState(false); // New: Optional table context
   
   // Data state
   const [pinBoundaryData, setPinBoundaryData] = useState<PinBoundaryRow[]>([]);
   const [requirementsData, setRequirementsData] = useState<RequirementsRow[]>([]);
+  const [simulationPlanData, setSimulationPlanData] = useState<PinBoundaryRow[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [tablesModified, setTablesModified] = useState(false);
   const [lastModifiedTime, setLastModifiedTime] = useState<string>('');
@@ -97,9 +99,10 @@ const AppDashboard = () => {
       setIsLoadingData(true);
       try {
         // Try loading from uploaded files first
-        const [pinRes, reqRes] = await Promise.all([
+        const [pinRes, reqRes, simRes] = await Promise.all([
           fetch('/mnt/user-data/uploads/step0_pin_boundary.csv').catch(() => null),
-          fetch('/mnt/user-data/uploads/step1_requirements.csv').catch(() => null)
+          fetch('/mnt/user-data/uploads/step1_requirements.csv').catch(() => null),
+          fetch('/mnt/user-data/uploads/step2_simulation_plan.csv').catch(() => null)
         ]);
 
         // Load Pin/Boundary data
@@ -123,6 +126,19 @@ const AppDashboard = () => {
           const reqText = await fallbackReq.text();
           setRequirementsData(parseRequirementsCSV(reqText));
         }
+
+        // Load Simulation Plan data
+        if (simRes && simRes.ok) {
+          const simText = await simRes.text();
+          setSimulationPlanData(parsePinBoundaryCSV(simText));
+        } else {
+          // Fallback to public folder
+          const fallbackSim = await fetch('/step2_simulation_plan.csv').catch(() => null);
+          if (fallbackSim && fallbackSim.ok) {
+            const simText = await fallbackSim.text();
+            setSimulationPlanData(parsePinBoundaryCSV(simText));
+          }
+        }
       } catch (error) {
         console.error('Error loading CSV data:', error);
       } finally {
@@ -145,6 +161,7 @@ const AppDashboard = () => {
     createNewConversation,
     selectConversation,
     sendMessage,
+    stopResponse,
     clearError,
   } = useConversation();
 
@@ -196,24 +213,47 @@ const AppDashboard = () => {
       }
     }
     
+    // Add Simulation Plan data summary
+    if (simulationPlanData.length > 0) {
+      context.push(`\n[CURRENT SIMULATION PLAN DATA]`);
+      context.push(`Total items: ${simulationPlanData.length}`);
+      simulationPlanData.slice(0, 5).forEach((row, idx) => {
+        const voltageInfo = row.VoltageMin || row.VoltageMax 
+          ? ` (${row.VoltageMin || '-'} to ${row.VoltageMax || '-'} ${row.Units || 'V'})` 
+          : '';
+        const directionInfo = row.Direction ? ` [${row.Direction}]` : '';
+        context.push(`${idx + 1}. ${row.RowType}: ${row.Name}${voltageInfo}${directionInfo} - ${row.Function || 'N/A'}`);
+      });
+      if (simulationPlanData.length > 5) {
+        context.push(`... and ${simulationPlanData.length - 5} more rows`);
+      }
+    }
+    
     return context.length > 0 ? context.join('\n') : '';
   };
 
   /**
-   * Handle sending a message with table context
+   * Handle sending a message with optional table context
+   * Context is sent to API but stripped from UI display
    */
   const handleSendMessage = async (messageContent: string) => {
     try {
-      // Append table data context to the message
-      const tableContext = formatTableDataForContext();
-      const messageWithContext = tableContext 
-        ? `${messageContent}\n\n${tableContext}\n\nNote: Please consider the current Pin/Boundary and Requirements data shown above in your response.`
-        : messageContent;
+      // Prepare message for API (with context if enabled)
+      let messageForAPI = messageContent;
       
+      if (includeTablesInContext) {
+        const tableContext = formatTableDataForContext();
+        if (tableContext) {
+          messageForAPI = `${messageContent}\n\n${tableContext}\n\nNote: Please consider the current Pin/Boundary and Requirements data shown above in your response.`;
+        }
+      }
+      
+      // Send to API with context, but it will be stored without context
+      // by extracting the original message before the context marker
       if (!currentConversationId) {
-        await createNewConversation(messageWithContext);
+        await createNewConversation(messageForAPI);
       } else {
-        await sendMessage(messageWithContext);
+        await sendMessage(messageForAPI);
       }
     } catch (err) {
       console.error('Failed to send message:', err);
@@ -237,6 +277,14 @@ const AppDashboard = () => {
     setTablesModified(true);
     setLastModifiedTime(new Date().toLocaleString());
     console.log('Requirements data saved:', data.length, 'rows');
+  };
+
+  const handleSimulationPlanSave = (data: PinBoundaryRow[]) => {
+    setSimulationPlanData(data);
+    localStorage.setItem('simulationPlanData', JSON.stringify(data));
+    setTablesModified(true);
+    setLastModifiedTime(new Date().toLocaleString());
+    console.log('Simulation Plan data saved:', data.length, 'rows');
   };
 
   /**
@@ -378,6 +426,24 @@ const AppDashboard = () => {
                 )}
               </button>
 
+              <button
+                onClick={() => setActiveDataTab('simulation-plan')}
+                className={`
+                  flex items-center gap-2 px-4 py-3 font-mono text-xs uppercase tracking-wider 
+                  transition-all relative
+                  ${activeDataTab === 'simulation-plan' 
+                    ? 'text-red-500 bg-gray-800' 
+                    : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
+                  }
+                `}
+              >
+                <FileSpreadsheet size={16} />
+                Simulation Plan
+                {activeDataTab === 'simulation-plan' && (
+                  <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></div>
+                )}
+              </button>
+
               <div className="ml-auto flex items-center gap-4">
                 {tablesModified && lastModifiedTime && (
                   <div className="flex items-center gap-2 px-3 py-1 bg-green-900/20 border border-green-800 rounded">
@@ -391,7 +457,9 @@ const AppDashboard = () => {
                 <span className="text-xs font-mono text-gray-600 uppercase">
                   {activeDataTab === 'pin-boundary' 
                     ? `${pinBoundaryData.length} rows` 
-                    : `${requirementsData.length} specs`}
+                    : activeDataTab === 'feasibility'
+                    ? `${requirementsData.length} specs`
+                    : `${simulationPlanData.length} rows`}
                 </span>
                 
                 {/* Hide/Show Toggle */}
@@ -434,13 +502,20 @@ const AppDashboard = () => {
                       onSave={handleRequirementsSave}
                     />
                   )}
+
+                  {activeDataTab === 'simulation-plan' && (
+                    <EditablePinBoundaryTable
+                      initialData={simulationPlanData}
+                      onSave={handleSimulationPlanSave}
+                    />
+                  )}
                 </>
               )}
             </div>
           </div>
         )}
 
-        {/* Show Tables Button - When Hidden */}
+        {/* Show Tables Button - When Hidden (Subtle Style) */}
         {!dataTablesVisible && (
           <div className="flex-shrink-0 border-b border-gray-800 bg-gray-900">
             <div className="px-6 py-2 flex items-center justify-between">
@@ -465,13 +540,78 @@ const AppDashboard = () => {
         )}
 
         {/* Chat Section */}
-        <div className="flex-1 flex flex-col min-h-0 bg-gray-950">
+        <div className="flex-1 flex flex-col min-h-0 bg-gray-950 relative">
           {/* Chat Messages */}
           <ChatMessages messages={messages} isLoading={isSending} />
+          
+          {/* Floating Stop Button - Appears while generating */}
+          {isSending && (
+            <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 animate-in fade-in slide-in-from-bottom-4 duration-300">
+              <button
+                onClick={stopResponse}
+                className="flex items-center gap-3 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg shadow-red-900/50 transition-all hover:scale-105 active:scale-95 group"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                  <span className="font-mono text-sm font-medium">Generating...</span>
+                </div>
+                <div className="w-px h-5 bg-white/30"></div>
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <rect x="6" y="6" width="12" height="12" rx="1" />
+                  </svg>
+                  <span className="font-mono text-sm font-bold">Stop</span>
+                </div>
+              </button>
+              <div className="text-center mt-2">
+                <span className="text-xs font-mono text-gray-500 bg-gray-900/80 px-3 py-1 rounded-full">
+                  or press <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400 font-mono text-[10px]">ESC</kbd>
+                </span>
+              </div>
+            </div>
+          )}
+          
+          {/* Table Context Toggle */}
+          <div className="border-t border-gray-800 bg-gray-900 px-4 py-2">
+            <label className="flex items-center gap-3 cursor-pointer group">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={includeTablesInContext}
+                  onChange={(e) => setIncludeTablesInContext(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-10 h-5 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-red-500 rounded-full peer peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-gray-400 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600 peer-checked:after:bg-white"></div>
+              </div>
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-mono text-gray-300">
+                    Include table data in messages
+                  </span>
+                  {includeTablesInContext && (
+                    <span className="px-2 py-0.5 bg-red-900/30 text-red-400 text-xs font-mono rounded">
+                      ON
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {includeTablesInContext 
+                    ? 'Table data will be sent with every message (uses more tokens)'
+                    : 'Table data will NOT be sent (saves tokens)'}
+                </p>
+              </div>
+              <div className="text-xs font-mono text-gray-600 group-hover:text-gray-400 transition-colors">
+                {includeTablesInContext 
+                  ? `~${(pinBoundaryData.length * 50 + requirementsData.length * 80 + simulationPlanData.length * 50)} tokens/msg`
+                  : 'Click to enable'}
+              </div>
+            </label>
+          </div>
           
           {/* Chat Input */}
           <NewChatInput 
             onSubmit={handleSendMessage}
+            onStop={stopResponse}
             disabled={false}
             isLoading={isSending}
           />

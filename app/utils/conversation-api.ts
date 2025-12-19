@@ -1,5 +1,5 @@
 /**
- * Conversation API Client - WITH STREAMING SUPPORT
+ * Conversation API Client - WITH DELETE SUPPORT
  * 
  * All API endpoints for managing conversations and messages.
  * Uses AWS Cognito access_token for authentication.
@@ -74,6 +74,11 @@ export interface Message {
   error?: string;
   index?: number;
   message_by?: 'user' | 'model';
+}
+
+export interface DeleteConversationResponse {
+  success: boolean;
+  message: string;
 }
 
 // ============================================================================
@@ -268,53 +273,49 @@ export async function pollMessageStatus(
   }
 }
 
-/**
- * Poll message status until complete with streaming callback
- * 
- * @param conversationId - Conversation ID
- * @param messageId - Message ID to poll
- * @param onProgress - Callback for streaming progress updates
- * @param maxAttempts - Maximum number of polling attempts (default: 60)
- * @param initialDelay - Initial delay in ms (default: 1000)
- * @param maxDelay - Maximum delay in ms (default: 5000)
- * @returns MessageStatusResponse when complete
- */
 export async function pollUntilComplete(
   conversationId: string,
   messageId: string,
   onProgress?: (partialMessage: string) => void,
   maxAttempts: number = 60,
   initialDelay: number = 1000,
-  maxDelay: number = 5000
+  maxDelay: number = 5000,
+  signal?: AbortSignal
 ): Promise<MessageStatusResponse> {
   let attempt = 0;
   let delay = initialDelay;
 
   while (attempt < maxAttempts) {
+    // Check if aborted
+    if (signal?.aborted) {
+      throw new DOMException('Polling aborted by user', 'AbortError');
+    }
+
     attempt++;
 
     try {
       const status = await pollMessageStatus(conversationId, messageId);
 
-      // Check if complete
       if (status.status === 'Complete') {
-        // Final update with complete message
         if (onProgress && status.message) {
           onProgress(status.message);
         }
         return status;
       }
 
-      // Check for errors
       if (status.error) {
         throw new Error(status.error);
       }
 
-      // Wait before next poll with exponential backoff
       await new Promise(resolve => setTimeout(resolve, delay));
       delay = Math.min(delay * 1.5, maxDelay);
 
     } catch (error) {
+      // Check if this is an abort error
+      if (error instanceof DOMException && error.name === 'AbortError') {
+        throw error;
+      }
+
       console.error(`Polling attempt ${attempt} failed:`, error);
       
       if (error instanceof Error && error.message.includes('Authentication failed')) {
@@ -397,6 +398,68 @@ export async function getConversationMessages(
     return messages;
   } catch (error) {
     console.error('Error fetching messages:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// DELETE CONVERSATION
+// ============================================================================
+
+/**
+ * Delete a conversation by ID
+ * 
+ * @param conversationId - ID of conversation to delete
+ * @returns DeleteConversationResponse with success status
+ */
+export async function deleteConversation(conversationId: string): Promise<DeleteConversationResponse> {
+  try {
+    const headers = getAuthHeaders();
+    const url = USE_PROXY
+      ? buildApiUrl(`/conversation/${conversationId}`)
+      : `${API_BASE_URL}/conversation/${conversationId}`;
+
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers,
+    });
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        if (typeof window !== 'undefined') {
+          sessionStorage.clear();
+          window.location.href = '/login';
+        }
+        throw new Error('Authentication failed. Please log in again.');
+      }
+
+      if (response.status === 404) {
+        // Conversation doesn't exist, treat as success
+        clearLocalMessages(conversationId);
+        return { 
+          success: true, 
+          message: 'Conversation not found (already deleted)' 
+        };
+      }
+
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`Failed to delete conversation: ${response.status} ${errorText}`);
+    }
+
+    // Clear local cache
+    clearLocalMessages(conversationId);
+
+    const data = await response.json().catch(() => ({ 
+      success: true, 
+      message: 'Conversation deleted' 
+    }));
+    
+    return { 
+      success: true, 
+      message: data.message || 'Conversation deleted successfully' 
+    };
+  } catch (error) {
+    console.error('Error deleting conversation:', error);
     throw error;
   }
 }

@@ -9,6 +9,7 @@ import {
   getLocalMessages,
   storeMessageLocally,
   getConversationMessages,
+  deleteConversation,
   type Conversation,
   type Message,
 } from '@/utils/conversation-api';
@@ -20,6 +21,7 @@ interface UseConversationResult {
   messages: Message[];
   isLoading: boolean;
   isSending: boolean;
+  isDeleting: boolean;
   error: string | null;
 
   // Actions
@@ -27,74 +29,9 @@ interface UseConversationResult {
   createNewConversation: (initialMessage: string) => Promise<string>;
   selectConversation: (conversationId: string) => void;
   sendMessage: (message: string) => Promise<void>;
+  stopResponse: () => void;
+  deleteConversation: (conversationId: string) => Promise<void>;
   clearError: () => void;
-}
-
-/**
- * Simulate typing effect by gradually revealing text
- * IMPROVED VERSION with better control
- */
-function useStreamingText(
-  messageId: string,
-  fullText: string,
-  onUpdate: (partial: string, isDone: boolean) => void,
-  speed: number = 15
-) {
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const indexRef = useRef(0);
-  const isCancelledRef = useRef(false);
-
-  const startStreaming = useCallback(() => {
-    console.log('🎬 Starting stream for message:', messageId, 'Length:', fullText.length);
-    isCancelledRef.current = false;
-    indexRef.current = 0;
-
-    const reveal = () => {
-      if (isCancelledRef.current) {
-        console.log('❌ Stream cancelled:', messageId);
-        return;
-      }
-
-      if (indexRef.current < fullText.length) {
-        // Reveal in chunks of 1-3 characters
-        const chunkSize = Math.min(
-          Math.max(1, Math.floor(Math.random() * 3) + 1),
-          fullText.length - indexRef.current
-        );
-        indexRef.current += chunkSize;
-        
-        const partial = fullText.substring(0, indexRef.current);
-        console.log('📝 Streaming:', messageId, `(${indexRef.current}/${fullText.length})`);
-        
-        onUpdate(partial, false);
-        
-        timeoutRef.current = setTimeout(reveal, speed);
-      } else {
-        console.log('✅ Stream complete:', messageId);
-        onUpdate(fullText, true);
-      }
-    };
-
-    // Start the reveal process
-    reveal();
-  }, [messageId, fullText, onUpdate, speed]);
-
-  const cancelStreaming = useCallback(() => {
-    console.log('🛑 Cancelling stream:', messageId);
-    isCancelledRef.current = true;
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
-    }
-  }, [messageId]);
-
-  useEffect(() => {
-    return () => {
-      cancelStreaming();
-    };
-  }, [cancelStreaming]);
-
-  return { startStreaming, cancelStreaming };
 }
 
 export function useConversation(): UseConversationResult {
@@ -103,9 +40,11 @@ export function useConversation(): UseConversationResult {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const pollingRef = useRef<Set<string>>(new Set());
+  const abortControllers = useRef<Map<string, AbortController>>(new Map());
   const streamingControllers = useRef<Map<string, () => void>>(new Map());
 
   /**
@@ -181,6 +120,9 @@ export function useConversation(): UseConversationResult {
     setError(null);
 
     try {
+      // Extract the original message (before table context if present)
+      const originalMessage = initialMessage.split('\n\n[CURRENT')[0].trim();
+      
       const response = await startNewConversation(initialMessage);
       const { conversation_id, message_id, timestamp } = response;
 
@@ -188,7 +130,7 @@ export function useConversation(): UseConversationResult {
         id: `user_${Date.now()}`,
         conversation_id,
         role: 'user',
-        content: initialMessage,
+        content: originalMessage, // Store only the original message for display
         timestamp,
         status: 'complete',
       };
@@ -237,6 +179,9 @@ export function useConversation(): UseConversationResult {
     setError(null);
 
     try {
+      // Extract the original message (before table context if present)
+      const originalMessage = messageContent.split('\n\n[CURRENT')[0].trim();
+      
       const response = await sendMessageInConversation(currentConversationId, messageContent);
       const { message_id, timestamp } = response;
 
@@ -244,7 +189,7 @@ export function useConversation(): UseConversationResult {
         id: `user_${Date.now()}`,
         conversation_id: currentConversationId,
         role: 'user',
-        content: messageContent,
+        content: originalMessage, // Store only the original message for display
         timestamp,
         status: 'complete',
       };
@@ -264,20 +209,51 @@ export function useConversation(): UseConversationResult {
       storeMessageLocally(currentConversationId, assistantMessage);
       setMessages(prev => [...prev, assistantMessage]);
 
+      // Don't set isSending to false here - let pollForResponse handle it
       pollForResponse(currentConversationId, message_id);
 
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to send message';
       setError(message);
       console.error('Error sending message:', err);
+      setIsSending(false); // Only set false on error
+    }
+  }, [currentConversationId]);
+
+  /**
+   * Delete a conversation
+   */
+  const handleDeleteConversation = useCallback(async (conversationId: string) => {
+    setIsDeleting(true);
+    setError(null);
+
+    try {
+      const result = await deleteConversation(conversationId);
+      
+      if (result.success) {
+        // Remove from conversations list
+        setConversations(prev => prev.filter(c => c.id !== conversationId));
+        
+        // Clear messages if this was the active conversation
+        if (currentConversationId === conversationId) {
+          setCurrentConversationId(null);
+          setMessages([]);
+        }
+        
+        console.log('Conversation deleted:', result.message);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to delete conversation';
+      setError(message);
+      console.error('Error deleting conversation:', err);
+      throw err;
     } finally {
-      setIsSending(false);
+      setIsDeleting(false);
     }
   }, [currentConversationId]);
 
   /**
    * Poll for message response with streaming effect
-   * IMPROVED VERSION
    */
   const pollForResponse = useCallback(async (conversationId: string, messageId: string) => {
     const pollKey = `${conversationId}_${messageId}`;
@@ -289,8 +265,20 @@ export function useConversation(): UseConversationResult {
     pollingRef.current.add(pollKey);
     console.log('🔄 Starting poll for:', messageId);
 
+    // Create abort controller for this polling operation
+    const abortController = new AbortController();
+    abortControllers.current.set(messageId, abortController);
+
     try {
-      const status = await pollUntilComplete(conversationId, messageId);
+      const status = await pollUntilComplete(
+        conversationId, 
+        messageId, 
+        undefined, 
+        60, 
+        1000, 
+        5000,
+        abortController.signal
+      );
       console.log('✅ Poll complete! Message length:', status.message.length);
 
       // Cancel any existing stream for this message
@@ -301,7 +289,7 @@ export function useConversation(): UseConversationResult {
         streamingControllers.current.delete(messageId);
       }
 
-      // Start streaming effect with a slight delay to ensure React has rendered
+      // Start streaming effect
       setTimeout(() => {
         console.log('🎬 Initiating streaming for:', messageId);
         streamMessage(conversationId, messageId, status.message, status.timestamp);
@@ -310,22 +298,49 @@ export function useConversation(): UseConversationResult {
       await loadConversations();
 
     } catch (err) {
-      console.error('❌ Error polling for response:', err);
-      
-      setMessages(prev => {
-        return prev.map(msg => {
-          if (msg.id === messageId) {
-            return {
-              ...msg,
-              status: 'error',
-              error: err instanceof Error ? err.message : 'Failed to get response',
-            };
-          }
-          return msg;
+      // Don't show error if user aborted
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        console.log('⏸️ Polling aborted by user for:', messageId);
+        
+        // Mark message as complete with current content
+        setMessages(prev => {
+          return prev.map(msg => {
+            if (msg.id === messageId && msg.status === 'processing') {
+              const completedMessage: Message = {
+                ...msg,
+                status: 'complete',
+              };
+              
+              if (currentConversationId) {
+                storeMessageLocally(currentConversationId, completedMessage);
+              }
+              
+              return completedMessage;
+            }
+            return msg;
+          });
         });
-      });
+        setIsSending(false); // User stopped, set to false
+      } else {
+        console.error('❌ Error polling for response:', err);
+        
+        setMessages(prev => {
+          return prev.map(msg => {
+            if (msg.id === messageId) {
+              return {
+                ...msg,
+                status: 'error',
+                error: err instanceof Error ? err.message : 'Failed to get response',
+              };
+            }
+            return msg;
+          });
+        });
+        setIsSending(false); // Error occurred, set to false
+      }
     } finally {
       pollingRef.current.delete(pollKey);
+      abortControllers.current.delete(messageId);
     }
   }, [loadConversations]);
 
@@ -375,7 +390,6 @@ export function useConversation(): UseConversationResult {
       }
 
       if (currentIndex < fullText.length) {
-        // Reveal 1-3 characters at a time
         const chunkSize = Math.min(
           Math.max(1, Math.floor(Math.random() * 3) + 1),
           fullText.length - currentIndex
@@ -385,20 +399,17 @@ export function useConversation(): UseConversationResult {
         const partial = fullText.substring(0, currentIndex);
         updateMessage(partial, false);
 
-        // Schedule next chunk
-        setTimeout(streamChunk, 15); // 15ms between chunks
+        setTimeout(streamChunk, 15);
       } else {
-        // Finished streaming
         console.log('✨ Streaming finished for:', messageId);
         updateMessage(fullText, true);
         streamingControllers.current.delete(messageId);
+        setIsSending(false); // Set false when streaming completes
       }
     };
 
-    // Start streaming
     streamChunk();
 
-    // Store cancel function
     const cancel = () => {
       isCancelled = true;
     };
@@ -412,6 +423,50 @@ export function useConversation(): UseConversationResult {
   const clearError = useCallback(() => {
     setError(null);
   }, []);
+
+  /**
+   * Stop the current streaming response
+   */
+  const stopResponse = useCallback(() => {
+    console.log('🛑 Stopping all active streams and polling');
+    
+    // Abort all active polling operations
+    abortControllers.current.forEach((controller, messageId) => {
+      console.log('🛑 Aborting polling for message:', messageId);
+      controller.abort();
+    });
+    abortControllers.current.clear();
+    
+    // Cancel all active streams
+    streamingControllers.current.forEach((cancel, messageId) => {
+      console.log('🛑 Cancelling stream for message:', messageId);
+      cancel();
+      
+      // Mark the message as complete with current content
+      setMessages(prev => {
+        return prev.map(msg => {
+          if (msg.id === messageId && msg.status === 'processing') {
+            const completedMessage: Message = {
+              ...msg,
+              status: 'complete',
+            };
+            
+            if (currentConversationId) {
+              storeMessageLocally(currentConversationId, completedMessage);
+            }
+            
+            return completedMessage;
+          }
+          return msg;
+        });
+      });
+    });
+    
+    streamingControllers.current.clear();
+    setIsSending(false);
+    
+    console.log('✅ All streams and polling stopped');
+  }, [currentConversationId]);
 
   /**
    * Load conversations on mount
@@ -434,7 +489,9 @@ export function useConversation(): UseConversationResult {
    */
   useEffect(() => {
     return () => {
-      console.log('🧹 Cleaning up streams');
+      console.log('🧹 Cleaning up streams and polling');
+      abortControllers.current.forEach(controller => controller.abort());
+      abortControllers.current.clear();
       streamingControllers.current.forEach(cancel => cancel());
       streamingControllers.current.clear();
     };
@@ -446,11 +503,14 @@ export function useConversation(): UseConversationResult {
     messages,
     isLoading,
     isSending,
+    isDeleting,
     error,
     loadConversations,
     createNewConversation,
     selectConversation,
     sendMessage,
+    stopResponse,
+    deleteConversation: handleDeleteConversation,
     clearError,
   };
 }
