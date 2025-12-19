@@ -6,6 +6,7 @@ import ChatMessages from './ChatMessages';
 import NewChatInput from './NewChatInput';
 import EditablePinBoundaryTable from './EditablePinBoundaryTable';
 import EditableRequirementsTable from './EditableRequirementsTable';
+import CustomSheetsManager from './CustomSheetsManager';
 import { ThemeToggle } from '../ui/ThemeToggle';
 import { useConversation } from '@/hooks/useConversation';
 import { parseCSV } from '@/utils/data';
@@ -18,9 +19,9 @@ const parsePinBoundaryCSV = (text: string): PinBoundaryRow[] => {
 const parseRequirementsCSV = (text: string): RequirementsRow[] => {
   return parseCSV(text) as unknown as RequirementsRow[];
 };
-import { FileSpreadsheet, FileCheck } from 'lucide-react';
+import { FileSpreadsheet, FileCheck, Upload } from 'lucide-react';
 
-type DataTabType = 'pin-boundary' | 'feasibility' | 'simulation-plan';
+type DataTabType = 'pin-boundary' | 'feasibility' | 'simulation-plan' | 'custom-sheets';
 
 interface PinBoundaryRow {
   RowType: string;
@@ -74,6 +75,8 @@ const AppDashboard = () => {
   const [pinBoundaryData, setPinBoundaryData] = useState<PinBoundaryRow[]>([]);
   const [requirementsData, setRequirementsData] = useState<RequirementsRow[]>([]);
   const [simulationPlanData, setSimulationPlanData] = useState<PinBoundaryRow[]>([]);
+  const [customSheets, setCustomSheets] = useState<Array<{id: string; name: string; data: any[]; headers: string[]}>>([]);
+  const [customSheetsExpanded, setCustomSheetsExpanded] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [tablesModified, setTablesModified] = useState(false);
   const [lastModifiedTime, setLastModifiedTime] = useState<string>('');
@@ -144,10 +147,27 @@ const AppDashboard = () => {
       } finally {
         setIsLoadingData(false);
       }
+      
+      // Load custom sheets from localStorage
+      const savedSheets = localStorage.getItem('customSheets');
+      if (savedSheets) {
+        try {
+          setCustomSheets(JSON.parse(savedSheets));
+        } catch (e) {
+          console.error('Error loading custom sheets:', e);
+        }
+      }
     };
 
     loadData();
   }, []);
+
+  // Save custom sheets to localStorage whenever they change
+  useEffect(() => {
+    if (customSheets.length > 0) {
+      localStorage.setItem('customSheets', JSON.stringify(customSheets));
+    }
+  }, [customSheets]);
 
   // Use conversation hook
   const {
@@ -444,6 +464,29 @@ const AppDashboard = () => {
                 )}
               </button>
 
+              <button
+                onClick={() => setActiveDataTab('custom-sheets')}
+                className={`
+                  flex items-center gap-2 px-4 py-3 font-mono text-xs uppercase tracking-wider 
+                  transition-all relative
+                  ${activeDataTab === 'custom-sheets' 
+                    ? 'text-red-500 bg-gray-800' 
+                    : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
+                  }
+                `}
+              >
+                <Upload size={16} />
+                Custom Sheets
+                {customSheets.length > 0 && (
+                  <span className="ml-1 px-1.5 py-0.5 bg-red-900/30 text-red-400 text-[10px] font-bold rounded">
+                    {customSheets.length}
+                  </span>
+                )}
+                {activeDataTab === 'custom-sheets' && (
+                  <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></div>
+                )}
+              </button>
+
               <div className="ml-auto flex items-center gap-4">
                 {tablesModified && lastModifiedTime && (
                   <div className="flex items-center gap-2 px-3 py-1 bg-green-900/20 border border-green-800 rounded">
@@ -459,8 +502,35 @@ const AppDashboard = () => {
                     ? `${pinBoundaryData.length} rows` 
                     : activeDataTab === 'feasibility'
                     ? `${requirementsData.length} specs`
-                    : `${simulationPlanData.length} rows`}
+                    : activeDataTab === 'simulation-plan'
+                    ? `${simulationPlanData.length} rows`
+                    : `${customSheets.length} sheets`}
                 </span>
+                
+                {/* Expand/Collapse for Custom Sheets */}
+                {activeDataTab === 'custom-sheets' && customSheets.length > 0 && (
+                  <button
+                    onClick={() => setCustomSheetsExpanded(!customSheetsExpanded)}
+                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded transition-colors"
+                    title={customSheetsExpanded ? "Shrink view" : "Expand view"}
+                  >
+                    {customSheetsExpanded ? (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                        Shrink
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                        </svg>
+                        Expand
+                      </>
+                    )}
+                  </button>
+                )}
                 
                 {/* Hide/Show Toggle */}
                 <button
@@ -477,7 +547,11 @@ const AppDashboard = () => {
             </div>
 
             {/* Table Content */}
-            <div className="h-[40vh] overflow-hidden bg-gray-900">
+            <div className={`overflow-hidden bg-gray-900 transition-all duration-300 ${
+              activeDataTab === 'custom-sheets' 
+                ? (customSheetsExpanded ? 'h-[80vh]' : 'h-[50vh]')
+                : 'h-[40vh]'
+            }`}>
               {isLoadingData ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center">
@@ -507,6 +581,14 @@ const AppDashboard = () => {
                     <EditablePinBoundaryTable
                       initialData={simulationPlanData}
                       onSave={handleSimulationPlanSave}
+                    />
+                  )}
+
+                  {activeDataTab === 'custom-sheets' && (
+                    <CustomSheetsManager
+                      sheets={customSheets}
+                      onSheetsChange={setCustomSheets}
+                      isExpanded={customSheetsExpanded}
                     />
                   )}
                 </>
