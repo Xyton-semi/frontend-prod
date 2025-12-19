@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Send, Square } from 'lucide-react';
 
 export interface NewChatInputProps {
-  onSubmit: (message: string) => void;
+  onSubmit?: (message: string) => void | Promise<void>;
   onStop?: () => void;
   disabled?: boolean;
   isLoading?: boolean;
@@ -42,7 +42,7 @@ const NewChatInput: React.FC<NewChatInputProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (message.trim() && !disabled && !isLoading) {
+    if (message.trim() && !disabled && !isLoading && onSubmit) {
       onSubmit(message.trim());
       setMessage('');
       
@@ -95,7 +95,7 @@ const NewChatInput: React.FC<NewChatInputProps> = ({
           ) : (
             <button
               type="submit"
-              disabled={disabled || !message.trim()}
+              disabled={disabled || !message.trim() || !onSubmit}
               className="flex-shrink-0 p-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-red-500"
               title="Send message (Enter)"
             >

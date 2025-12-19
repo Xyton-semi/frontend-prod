@@ -226,7 +226,7 @@ export async function login(params: LoginParams): Promise<LoginResponse> {
     // Validate that we got at least an accessToken
     if (!tokens.accessToken) {
       console.error('❌ No access_token found in response!');
-      throw new Error('Invalid login response: missing authentication token');
+      throw new Error('Invalid login: Password or username is incorrect.');
     }
 
     // Extract user info from response
