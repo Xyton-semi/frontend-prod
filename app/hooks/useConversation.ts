@@ -130,8 +130,8 @@ export function useConversation(): UseConversationResult {
         id: `user_${Date.now()}`,
         conversation_id,
         role: 'user',
-        content: originalMessage, // Store only the original message for display
-        timestamp,
+        content: originalMessage,
+        timestamp: timestamp || new Date().toISOString(),
         status: 'complete',
       };
 
@@ -300,7 +300,7 @@ export function useConversation(): UseConversationResult {
     } catch (err) {
       // Don't show error if user aborted
       if (err instanceof DOMException && err.name === 'AbortError') {
-        console.log('⏸️ Polling aborted by user for:', messageId);
+        console.log('Polling aborted by user for:', messageId);
         
         // Mark message as complete with current content
         setMessages(prev => {
@@ -322,7 +322,7 @@ export function useConversation(): UseConversationResult {
         });
         setIsSending(false); // User stopped, set to false
       } else {
-        console.error('❌ Error polling for response:', err);
+        console.error('Error polling for response:', err);
         
         setMessages(prev => {
           return prev.map(msg => {
@@ -372,7 +372,7 @@ export function useConversation(): UseConversationResult {
             };
 
             if (isComplete) {
-              console.log('💾 Storing completed message:', messageId);
+              console.log('Storing completed message:', messageId);
               storeMessageLocally(conversationId, updatedMessage);
             }
 
@@ -428,18 +428,18 @@ export function useConversation(): UseConversationResult {
    * Stop the current streaming response
    */
   const stopResponse = useCallback(() => {
-    console.log('🛑 Stopping all active streams and polling');
+    console.log('Stopping all active streams and polling');
     
     // Abort all active polling operations
     abortControllers.current.forEach((controller, messageId) => {
-      console.log('🛑 Aborting polling for message:', messageId);
+      console.log('Aborting polling for message:', messageId);
       controller.abort();
     });
     abortControllers.current.clear();
     
     // Cancel all active streams
     streamingControllers.current.forEach((cancel, messageId) => {
-      console.log('🛑 Cancelling stream for message:', messageId);
+      console.log('Cancelling stream for message:', messageId);
       cancel();
       
       // Mark the message as complete with current content

@@ -11,52 +11,13 @@ import { ThemeToggle } from '../ui/ThemeToggle';
 import { useConversation } from '@/hooks/useConversation';
 import { parseCSV } from '@/utils/data';
 
-// Helper functions for type-safe CSV parsing
-const parsePinBoundaryCSV = (text: string): PinBoundaryRow[] => {
-  return parseCSV(text) as unknown as PinBoundaryRow[];
-};
-
-const parseRequirementsCSV = (text: string): RequirementsRow[] => {
-  return parseCSV(text) as unknown as RequirementsRow[];
-};
 import { FileSpreadsheet, FileCheck, Upload } from 'lucide-react';
 
 type DataTabType = 'pin-boundary' | 'feasibility' | 'simulation-plan' | 'custom-sheets';
 
-interface PinBoundaryRow {
-  RowType: string;
-  Name: string;
-  PadConn: string;
-  Direction: string;
-  Function: string;
-  'Definition / Notes': string;
-  VoltageMin: string;
-  VoltageMax: string;
-  Units: string;
-  ESD_HBM_kV: string;
-  ESD_CDM_V: string;
-  Value: string;
-  ValueUnits: string;
-  Comments: string;
-}
-
-interface RequirementsRow {
-  'Spec Category': string;
-  Parameter: string;
-  Symbol: string;
-  'Definition / Test Condition': string;
-  'User Target Min': string;
-  'User Target Typ': string;
-  'User Target Max': string;
-  'Actual Min': string;
-  'Actual Typ': string;
-  'Actual Max': string;
-  Units: string;
-  'Physical Trade-off / Sensitivity': string;
-  Priority: string;
-  Difficulty: string;
-  'Comments / Pin Mapping': string;
-  'Specification Source': string;
+// Generic row interface for dynamic columns
+interface DataRow {
+  [key: string]: string;
 }
 
 /**
@@ -67,14 +28,14 @@ const AppDashboard = () => {
   const router = useRouter();
   const [activeDataTab, setActiveDataTab] = useState<DataTabType>('pin-boundary');
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
-  const [dataTablesVisible, setDataTablesVisible] = useState(false); // CHANGED: Default to hidden
+  const [dataTablesVisible, setDataTablesVisible] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
-  const [includeTablesInContext, setIncludeTablesInContext] = useState(false); // New: Optional table context
+  const [includeTablesInContext, setIncludeTablesInContext] = useState(false);
   
-  // Data state
-  const [pinBoundaryData, setPinBoundaryData] = useState<PinBoundaryRow[]>([]);
-  const [requirementsData, setRequirementsData] = useState<RequirementsRow[]>([]);
-  const [simulationPlanData, setSimulationPlanData] = useState<PinBoundaryRow[]>([]);
+  // Data state - using generic DataRow interface
+  const [pinBoundaryData, setPinBoundaryData] = useState<DataRow[]>([]);
+  const [requirementsData, setRequirementsData] = useState<DataRow[]>([]);
+  const [simulationPlanData, setSimulationPlanData] = useState<DataRow[]>([]);
   const [customSheets, setCustomSheets] = useState<Array<{id: string; name: string; data: any[]; headers: string[]}>>([]);
   const [customSheetsExpanded, setCustomSheetsExpanded] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
@@ -111,35 +72,35 @@ const AppDashboard = () => {
         // Load Pin/Boundary data
         if (pinRes && pinRes.ok) {
           const pinText = await pinRes.text();
-          setPinBoundaryData(parsePinBoundaryCSV(pinText));
+          setPinBoundaryData(parseCSV<DataRow>(pinText));
         } else {
           // Fallback to public folder
           const fallbackPin = await fetch('/step0_pin_boundary.csv');
           const pinText = await fallbackPin.text();
-          setPinBoundaryData(parsePinBoundaryCSV(pinText));
+          setPinBoundaryData(parseCSV<DataRow>(pinText));
         }
 
         // Load Requirements data
         if (reqRes && reqRes.ok) {
           const reqText = await reqRes.text();
-          setRequirementsData(parseRequirementsCSV(reqText));
+          setRequirementsData(parseCSV<DataRow>(reqText));
         } else {
           // Fallback to public folder
           const fallbackReq = await fetch('/step1_requirements.csv');
           const reqText = await fallbackReq.text();
-          setRequirementsData(parseRequirementsCSV(reqText));
+          setRequirementsData(parseCSV<DataRow>(reqText));
         }
 
         // Load Simulation Plan data
         if (simRes && simRes.ok) {
           const simText = await simRes.text();
-          setSimulationPlanData(parsePinBoundaryCSV(simText));
+          setSimulationPlanData(parseCSV<DataRow>(simText));
         } else {
           // Fallback to public folder
           const fallbackSim = await fetch('/step2_simulation_plan.csv').catch(() => null);
           if (fallbackSim && fallbackSim.ok) {
             const simText = await fallbackSim.text();
-            setSimulationPlanData(parsePinBoundaryCSV(simText));
+            setSimulationPlanData(parseCSV<DataRow>(simText));
           }
         }
       } catch (error) {
@@ -204,11 +165,11 @@ const AppDashboard = () => {
       context.push(`Total pins: ${pinBoundaryData.length}`);
       pinBoundaryData.slice(0, 5).forEach((row, idx) => {
         // Include voltage ranges if available
-        const voltageInfo = row.VoltageMin || row.VoltageMax 
-          ? ` (${row.VoltageMin || '-'} to ${row.VoltageMax || '-'} ${row.Units || 'V'})` 
+        const voltageInfo = row['VoltageMin'] || row['VoltageMax'] 
+          ? ` (${row['VoltageMin'] || '-'} to ${row['VoltageMax'] || '-'} ${row['Units'] || 'V'})` 
           : '';
-        const directionInfo = row.Direction ? ` [${row.Direction}]` : '';
-        context.push(`${idx + 1}. ${row.RowType}: ${row.Name}${voltageInfo}${directionInfo} - ${row.Function || 'N/A'}`);
+        const directionInfo = row['Direction'] ? ` [${row['Direction']}]` : '';
+        context.push(`${idx + 1}. ${row['RowType']}: ${row['Name']}${voltageInfo}${directionInfo} - ${row['Function'] || 'N/A'}`);
       });
       if (pinBoundaryData.length > 5) {
         context.push(`... and ${pinBoundaryData.length - 5} more rows`);
@@ -226,7 +187,7 @@ const AppDashboard = () => {
         const valueRange = typVal 
           ? `${minVal}/${typVal}/${maxVal}`
           : `${minVal}-${maxVal}`;
-        context.push(`${idx + 1}. ${row.Parameter} (${row.Symbol}): ${valueRange} ${row.Units} [Priority: ${row.Priority}]`);
+        context.push(`${idx + 1}. ${row['Parameter']} (${row['Symbol']}): ${valueRange} ${row['Units']} [Priority: ${row['Priority']}]`);
       });
       if (requirementsData.length > 5) {
         context.push(`... and ${requirementsData.length - 5} more specifications`);
@@ -238,11 +199,11 @@ const AppDashboard = () => {
       context.push(`\n[CURRENT SIMULATION PLAN DATA]`);
       context.push(`Total items: ${simulationPlanData.length}`);
       simulationPlanData.slice(0, 5).forEach((row, idx) => {
-        const voltageInfo = row.VoltageMin || row.VoltageMax 
-          ? ` (${row.VoltageMin || '-'} to ${row.VoltageMax || '-'} ${row.Units || 'V'})` 
+        const voltageInfo = row['VoltageMin'] || row['VoltageMax'] 
+          ? ` (${row['VoltageMin'] || '-'} to ${row['VoltageMax'] || '-'} ${row['Units'] || 'V'})` 
           : '';
-        const directionInfo = row.Direction ? ` [${row.Direction}]` : '';
-        context.push(`${idx + 1}. ${row.RowType}: ${row.Name}${voltageInfo}${directionInfo} - ${row.Function || 'N/A'}`);
+        const directionInfo = row['Direction'] ? ` [${row['Direction']}]` : '';
+        context.push(`${idx + 1}. ${row['RowType']}: ${row['Name']}${voltageInfo}${directionInfo} - ${row['Function'] || 'N/A'}`);
       });
       if (simulationPlanData.length > 5) {
         context.push(`... and ${simulationPlanData.length - 5} more rows`);
@@ -254,11 +215,9 @@ const AppDashboard = () => {
 
   /**
    * Handle sending a message with optional table context
-   * Context is sent to API but stripped from UI display
    */
   const handleSendMessage = async (messageContent: string) => {
     try {
-      // Prepare message for API (with context if enabled)
       let messageForAPI = messageContent;
       
       if (includeTablesInContext) {
@@ -268,8 +227,6 @@ const AppDashboard = () => {
         }
       }
       
-      // Send to API with context, but it will be stored without context
-      // by extracting the original message before the context marker
       if (!currentConversationId) {
         await createNewConversation(messageForAPI);
       } else {
@@ -281,9 +238,9 @@ const AppDashboard = () => {
   };
 
   /**
-   * Handle data save callbacks
+   * Handle data save callbacks - now accepts generic DataRow[]
    */
-  const handlePinBoundarySave = (data: PinBoundaryRow[]) => {
+  const handlePinBoundarySave = (data: DataRow[]) => {
     setPinBoundaryData(data);
     localStorage.setItem('pinBoundaryData', JSON.stringify(data));
     setTablesModified(true);
@@ -291,7 +248,7 @@ const AppDashboard = () => {
     console.log('Pin/Boundary data saved:', data.length, 'rows');
   };
 
-  const handleRequirementsSave = (data: RequirementsRow[]) => {
+  const handleRequirementsSave = (data: DataRow[]) => {
     setRequirementsData(data);
     localStorage.setItem('requirementsData', JSON.stringify(data));
     setTablesModified(true);
@@ -299,7 +256,7 @@ const AppDashboard = () => {
     console.log('Requirements data saved:', data.length, 'rows');
   };
 
-  const handleSimulationPlanSave = (data: PinBoundaryRow[]) => {
+  const handleSimulationPlanSave = (data: DataRow[]) => {
     setSimulationPlanData(data);
     localStorage.setItem('simulationPlanData', JSON.stringify(data));
     setTablesModified(true);
@@ -597,7 +554,7 @@ const AppDashboard = () => {
           </div>
         )}
 
-        {/* Show Tables Button - When Hidden (Subtle Style) */}
+        {/* Show Tables Button - When Hidden */}
         {!dataTablesVisible && (
           <div className="flex-shrink-0 border-b border-gray-800 bg-gray-900">
             <div className="px-6 py-2 flex items-center justify-between">

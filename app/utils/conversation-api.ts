@@ -69,8 +69,8 @@ export interface Message {
   conversation_id?: string;
   role?: 'user' | 'assistant';
   content: string;
-  timestamp?: string;
-  status?: 'pending' | 'processing' | 'complete' | 'error';
+  timestamp: string;
+  status?: 'sending' | 'processing' | 'complete' | 'error';
   error?: string;
   index?: number;
   message_by?: 'user' | 'model';

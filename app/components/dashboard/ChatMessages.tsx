@@ -1,149 +1,163 @@
-"use client"
+"use client";
 
 import React, { useEffect, useRef, useState } from 'react';
-import { Loader2, AlertCircle } from 'lucide-react';
-import type { Message } from '@/utils/conversation-api';
+import dynamic from 'next/dynamic';
+import { Copy, Check, User, Bot, Database } from 'lucide-react';
+
+// Dynamically import ReactMarkdown to avoid SSR issues
+const ReactMarkdown = dynamic(() => import('react-markdown'), {
+  ssr: false,
+  loading: () => <div className="text-gray-400">Loading...</div>
+});
+
+// Use dynamic import for syntax highlighter
+const SyntaxHighlighter = dynamic(
+  () => import('react-syntax-highlighter').then((mod) => mod.Prism),
+  { ssr: false }
+);
+
+// Import the style
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
+
+// Match the API's Message type exactly
+interface Message {
+  id: string;
+  role?: 'user' | 'assistant'; // Optional to match API
+  content: string;
+  timestamp: Date | string;
+  status?: 'sending' | 'processing' | 'complete' | 'error';
+}
 
 interface ChatMessagesProps {
   messages: Message[];
   isLoading?: boolean;
 }
 
+interface ParsedMessage {
+  message: string;
+  hasTableContext: boolean;
+  contextInfo?: string;
+}
+
 /**
- * StreamingMessage - Shows a single message with typing effect
+ * Extract the actual user message and detect if table context was included
  */
-const StreamingMessage: React.FC<{ message: Message }> = ({ message }) => {
-  const [displayedContent, setDisplayedContent] = useState('');
-  const [isStreaming, setIsStreaming] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const indexRef = useRef(0);
-
-  useEffect(() => {
-    // Only stream assistant messages that are complete and have content
-    const shouldStream = 
-      message.role === 'assistant' && 
-      message.status === 'complete' && 
-      message.content && 
-      message.content.length > 0;
-
-    if (!shouldStream) {
-      // For user messages or incomplete messages, show immediately
-      setDisplayedContent(message.content);
-      return;
+const parseUserMessage = (content: string): ParsedMessage => {
+  const contextMarkers = [
+    '\n\n[CURRENT PIN & BOUNDARY DATA]',
+    '\n[CURRENT PIN & BOUNDARY DATA]',
+  ];
+  
+  for (const marker of contextMarkers) {
+    const index = content.indexOf(marker);
+    if (index !== -1) {
+      const actualMessage = content.substring(0, index).trim();
+      
+      // Count which data sections were included
+      const sections: string[] = [];
+      if (content.includes('[CURRENT PIN & BOUNDARY DATA]')) sections.push('Pin/Boundary');
+      if (content.includes('[CURRENT REQUIREMENTS DATA]')) sections.push('Requirements');
+      if (content.includes('[CURRENT SIMULATION PLAN DATA]')) sections.push('Simulation Plan');
+      
+      return {
+        message: actualMessage,
+        hasTableContext: true,
+        contextInfo: sections.join(', ')
+      };
     }
-
-    // Check if we've already streamed this message
-    if (displayedContent === message.content) {
-      return;
-    }
-
-    // Start streaming
-    console.log('🎬 Starting stream for message:', message.id);
-    setIsStreaming(true);
-    indexRef.current = 0;
-
-    const streamText = () => {
-      if (indexRef.current < message.content.length) {
-        // Reveal 1-3 characters at a time
-        const chunkSize = Math.min(
-          Math.floor(Math.random() * 3) + 1,
-          message.content.length - indexRef.current
-        );
-        indexRef.current += chunkSize;
-        
-        const partial = message.content.substring(0, indexRef.current);
-        setDisplayedContent(partial);
-        
-        // Schedule next chunk
-        timerRef.current = setTimeout(streamText, 15);
-      } else {
-        // Streaming complete
-        console.log('✨ Stream complete for:', message.id);
-        setIsStreaming(false);
-        setDisplayedContent(message.content);
-      }
-    };
-
-    streamText();
-
-    // Cleanup
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-    };
-  }, [message.content, message.role, message.status, message.id]);
-
-  const isUser = message.role === 'user';
-  const isProcessing = message.status === 'processing' || message.status === 'pending';
-  const isError = message.status === 'error';
-
-  return (
-    <div className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      {/* Message Bubble */}
-      <div className={`max-w-[75%] ${isUser ? 'text-right' : 'text-left'}`}>
-        <div
-          className={`
-            inline-block px-4 py-3 rounded-2xl font-mono text-sm
-            ${isUser
-              ? 'bg-red-600 text-white rounded-tr-md shadow-lg'
-              : 'bg-gray-800 text-gray-100 rounded-tl-md border border-gray-700'
-            }
-            ${isError ? 'border-2 border-red-500' : ''}
-          `}
-        >
-          {/* Processing State */}
-          {isProcessing && !isUser && !displayedContent && (
-            <div className="flex items-center gap-2">
-              <Loader2 size={14} className="animate-spin text-gray-400" />
-              <span className="text-gray-400 text-xs uppercase tracking-wider">
-                Processing...
-              </span>
-            </div>
-          )}
-
-          {/* Error State */}
-          {isError && (
-            <div className="flex items-center gap-2 mb-2 text-red-400">
-              <AlertCircle size={14} className="flex-shrink-0" />
-              <span className="text-xs uppercase tracking-wider">
-                {message.error || 'Error'}
-              </span>
-            </div>
-          )}
-
-          {/* Message Text */}
-          {displayedContent && (
-            <div className="whitespace-pre-wrap break-words leading-relaxed">
-              {displayedContent}
-              {isStreaming && (
-                <span className="inline-block w-1 h-4 bg-gray-300 ml-0.5 animate-pulse" />
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Timestamp */}
-        {message.timestamp && (
-          <div className={`
-            text-[10px] font-mono text-gray-600 mt-1 px-2 uppercase tracking-wider
-            ${isUser ? 'text-right' : 'text-left'}
-          `}>
-            {formatTime(message.timestamp)}
-          </div>
-        )}
-      </div>
-    </div>
-  );
+  }
+  
+  return {
+    message: content,
+    hasTableContext: false
+  };
 };
 
-/**
- * Format timestamp
- */
-const formatTime = (timestamp: string): string => {
+const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false }) => {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const prevStatusRef = useRef<{ [key: string]: string }>({});
+  const hasStreamedRef = useRef<{ [key: string]: boolean }>({});
+  const [displayedContent, setDisplayedContent] = useState<{ [key: string]: string }>({});
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Streaming effect - only depends on messages
+  useEffect(() => {
+    messages.forEach((message) => {
+      if (message.role !== 'assistant') return;
+
+      const prevStatus = prevStatusRef.current[message.id];
+      const justCompleted = prevStatus === 'processing' && message.status === 'complete';
+
+      // Start streaming for newly completed messages
+      if (justCompleted && !hasStreamedRef.current[message.id] && message.content.length > 0) {
+        hasStreamedRef.current[message.id] = true;
+        
+        let charIndex = 0;
+        const content = message.content;
+        
+        const streamInterval = setInterval(() => {
+          charIndex += 3;
+          
+          if (charIndex >= content.length) {
+            setDisplayedContent(prev => ({ ...prev, [message.id]: content }));
+            clearInterval(streamInterval);
+          } else {
+            setDisplayedContent(prev => ({ 
+              ...prev, 
+              [message.id]: content.substring(0, charIndex) 
+            }));
+          }
+        }, 10);
+
+        return () => clearInterval(streamInterval);
+      }
+
+      // Update previous status
+      prevStatusRef.current[message.id] = message.status || 'complete';
+
+      // For already complete messages (loaded from history), show immediately
+      if (message.status === 'complete' && message.content && !(message.id in displayedContent)) {
+        setDisplayedContent(prev => {
+          if (message.id in prev) return prev;
+          return { ...prev, [message.id]: message.content };
+        });
+      }
+    });
+  }, [messages]);
+
+  const handleCopy = async (content: string, messageId: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopiedId(messageId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  // Helper to format timestamp
+  const formatTime = (timestamp: string | Date): string => {
+  if (!timestamp) return '';
+  
   try {
-    const date = new Date(parseInt(timestamp));
+    let date: Date;
+
+    if (timestamp instanceof Date) {
+      date = timestamp;
+    } else {
+      // It's a string: check if it's a Unix timestamp (digits only) or ISO string
+      date = /^\d+$/.test(timestamp) 
+        ? new Date(parseInt(timestamp)) 
+        : new Date(timestamp);
+    }
+
+    // Validate date
+    if (isNaN(date.getTime())) return '';
+
     return date.toLocaleTimeString('en-US', { 
       hour: 'numeric', 
       minute: '2-digit',
@@ -154,66 +168,301 @@ const formatTime = (timestamp: string): string => {
   }
 };
 
-const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false }) => {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  /**
-   * Auto-scroll to bottom when new messages arrive
-   */
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  if (messages.length === 0 && !isLoading) {
+  if (messages.length === 0) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
-        <div className="text-center max-w-md">
-          <div className="w-24 h-24 mx-auto mb-6 flex items-center justify-center">
-            <svg className="w-full h-full text-gray-700" viewBox="0 0 100 100" fill="none">
-              <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="2" opacity="0.3"/>
-              <path d="M30 45 L45 60 L70 35" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.5"/>
-            </svg>
+        <div className="text-center max-w-2xl">
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-red-900/20 to-red-600/20 flex items-center justify-center">
+            <Bot className="w-10 h-10 text-red-500" />
           </div>
-          <h3 className="text-xl font-mono font-bold text-gray-300 mb-2 tracking-wider">
-            START A CONVERSATION
-          </h3>
-          <p className="text-sm font-mono text-gray-500">
-            Send a message to begin your circuit design discussion
+          <h2 className="text-2xl font-mono font-bold text-gray-200 mb-3">
+            Start a New Conversation
+          </h2>
+          <p className="text-gray-500 font-mono text-sm leading-relaxed">
+            Ask questions about your circuit design, pin configurations, or requirements.
+            I can help analyze your data, suggest optimizations, and answer technical questions.
           </p>
+          <div className="mt-8 grid grid-cols-1 gap-3 text-left">
+            <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg hover:border-red-800 transition-colors cursor-pointer">
+              <p className="text-sm font-mono text-gray-400">
+                💡 &quot;What are the voltage requirements for VIN?&quot;
+              </p>
+            </div>
+            <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg hover:border-red-800 transition-colors cursor-pointer">
+              <p className="text-sm font-mono text-gray-400">
+                💡 &quot;Analyze the dropout voltage specifications&quot;
+              </p>
+            </div>
+            <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg hover:border-red-800 transition-colors cursor-pointer">
+              <p className="text-sm font-mono text-gray-400">
+                💡 &quot;Suggest simulation test cases for my LDO&quot;
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div 
-      ref={containerRef}
-      className="flex-1 overflow-y-auto px-6 py-8 space-y-4"
-      style={{
-        scrollbarWidth: 'thin',
-        scrollbarColor: '#374151 #1f2937'
-      }}
-    >
-      {messages.map((message) => (
-        <StreamingMessage key={message.id} message={message} />
-      ))}
+    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      {messages.map((message) => {
+        // Handle optional role - default to 'user' if undefined
+        const isUser = message.role === 'user' || !message.role;
+        const currentContent = displayedContent[message.id] || message.content;
+        const isStreaming = message.role === 'assistant' && 
+                           message.status === 'processing' || 
+                           (displayedContent[message.id] && 
+                            displayedContent[message.id].length < message.content.length);
+        
+        // Parse user message to extract actual message and context info
+        let displayContent: string;
+        let hasTableContext = false;
+        let contextInfo: string | undefined;
 
-      {/* Loading indicator */}
-      {isLoading && (
-        <div className="flex justify-start">
-          <div className="inline-block bg-gray-800 border border-gray-700 rounded-2xl rounded-tl-md px-4 py-3">
-            <div className="flex items-center gap-2">
-              <Loader2 size={14} className="animate-spin text-gray-400" />
-              <span className="text-xs font-mono text-gray-400 uppercase tracking-wider">
-                AI Thinking...
-              </span>
+        if (isUser) {
+          const parsed = parseUserMessage(message.content);
+          displayContent = parsed.message;
+          hasTableContext = parsed.hasTableContext;
+          contextInfo = parsed.contextInfo;
+        } else {
+          displayContent = currentContent;
+        }
+
+        return (
+          <div
+            key={message.id}
+            className={`flex gap-4 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}
+          >
+            {/* Avatar */}
+            <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
+              isUser 
+                ? 'bg-gradient-to-br from-red-600 to-red-700' 
+                : 'bg-gradient-to-br from-gray-700 to-gray-800 border border-gray-600'
+            }`}>
+              {isUser ? (
+                <User className="w-5 h-5 text-white" />
+              ) : (
+                <Bot className="w-5 h-5 text-gray-300" />
+              )}
+            </div>
+
+            {/* Message Content */}
+            <div className={`flex-1 max-w-3xl ${isUser ? 'text-right' : 'text-left'}`}>
+              {/* Table Context Badge */}
+              {isUser && hasTableContext && contextInfo && (
+                <div className="mb-2 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-900/20 border border-blue-800">
+                  <Database className="w-3 h-3 text-blue-400" />
+                  <span className="text-xs font-mono text-blue-300">
+                    Includes: {contextInfo}
+                  </span>
+                  <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse"></div>
+                </div>
+              )}
+
+              {/* Message Bubble */}
+              <div
+                className={`inline-block px-5 py-4 rounded-2xl ${
+                  isUser
+                    ? 'bg-gradient-to-br from-red-600 to-red-700 text-white'
+                    : 'bg-gray-900 border border-gray-800 text-gray-200'
+                } ${hasTableContext ? 'clear-both' : ''}`}
+              >
+                {isUser ? (
+                  // User messages: simple text display
+                  <p className="text-sm font-mono whitespace-pre-wrap break-words">
+                    {displayContent}
+                  </p>
+                ) : (
+                  // Assistant messages: markdown rendering
+                  <div className="prose prose-invert prose-sm max-w-none">
+                    <ReactMarkdown
+                      components={{
+                        code: (props: any) => {
+                          const { inline, className, children } = props;
+                          const match = /language-(\w+)/.exec(className || '');
+                          const codeContent = String(children).replace(/\n$/, '');
+                          
+                          if (!inline && match) {
+                            return (
+                              <div className="relative group">
+                                <button
+                                  onClick={() => handleCopy(codeContent, message.id)}
+                                  className="absolute top-2 right-2 p-2 bg-gray-800 hover:bg-gray-700 rounded transition-colors opacity-0 group-hover:opacity-100"
+                                  title="Copy code"
+                                >
+                                  {copiedId === message.id ? (
+                                    <Check className="w-4 h-4 text-green-400" />
+                                  ) : (
+                                    <Copy className="w-4 h-4 text-gray-400" />
+                                  )}
+                                </button>
+                                <SyntaxHighlighter
+                                  style={vscDarkPlus}
+                                  language={match[1]}
+                                  PreTag="div"
+                                >
+                                  {codeContent}
+                                </SyntaxHighlighter>
+                              </div>
+                            );
+                          }
+                          
+                          return (
+                            <code className="px-1.5 py-0.5 bg-gray-800 rounded text-red-400 font-mono text-xs">
+                              {children}
+                            </code>
+                          );
+                        },
+                        p: (props: any) => (
+                          <p className="mb-3 last:mb-0 text-sm font-mono leading-relaxed text-gray-300">
+                            {props.children}
+                          </p>
+                        ),
+                        ul: (props: any) => (
+                          <ul className="list-disc list-inside space-y-1 mb-3 text-sm font-mono text-gray-300">
+                            {props.children}
+                          </ul>
+                        ),
+                        ol: (props: any) => (
+                          <ol className="list-decimal list-inside space-y-1 mb-3 text-sm font-mono text-gray-300">
+                            {props.children}
+                          </ol>
+                        ),
+                        li: (props: any) => (
+                          <li className="text-gray-300">{props.children}</li>
+                        ),
+                        h1: (props: any) => (
+                          <h1 className="text-xl font-mono font-bold text-red-400 mb-3 mt-4">{props.children}</h1>
+                        ),
+                        h2: (props: any) => (
+                          <h2 className="text-lg font-mono font-bold text-red-400 mb-2 mt-3">{props.children}</h2>
+                        ),
+                        h3: (props: any) => (
+                          <h3 className="text-base font-mono font-semibold text-red-400 mb-2 mt-2">{props.children}</h3>
+                        ),
+                        blockquote: (props: any) => (
+                          <blockquote className="border-l-4 border-red-600 pl-4 italic text-gray-400 my-3">
+                            {props.children}
+                          </blockquote>
+                        ),
+                        a: (props: any) => (
+                          <a
+                            href={props.href}
+                            className="text-red-400 hover:text-red-300 underline"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {props.children}
+                          </a>
+                        ),
+                        table: (props: any) => (
+                          <div className="overflow-x-auto my-4">
+                            <table className="min-w-full divide-y divide-gray-700 border border-gray-700">
+                              {props.children}
+                            </table>
+                          </div>
+                        ),
+                        thead: (props: any) => (
+                          <thead className="bg-gray-800">{props.children}</thead>
+                        ),
+                        tbody: (props: any) => (
+                          <tbody className="divide-y divide-gray-700">{props.children}</tbody>
+                        ),
+                        tr: (props: any) => (
+                          <tr className="hover:bg-gray-800/50">{props.children}</tr>
+                        ),
+                        th: (props: any) => (
+                          <th className="px-4 py-2 text-left text-xs font-mono font-semibold text-gray-300 uppercase tracking-wider">
+                            {props.children}
+                          </th>
+                        ),
+                        td: (props: any) => (
+                          <td className="px-4 py-2 text-sm font-mono text-gray-400">
+                            {props.children}
+                          </td>
+                        ),
+                      }}
+                    >
+                      {displayContent}
+                    </ReactMarkdown>
+                    {isStreaming && (
+                      <span className="inline-block w-2 h-4 ml-1 bg-red-500 animate-pulse" />
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Timestamp & Status */}
+              <div className={`mt-2 flex items-center gap-2 text-xs font-mono text-gray-600 ${
+                isUser ? 'justify-end' : 'justify-start'
+              }`}>
+                {message.timestamp && (
+                  <span>{formatTime(message.timestamp)}</span>
+                )}
+                {message.status === 'sending' && (
+                  <>
+                    <span>•</span>
+                    <span className="text-yellow-500">Sending...</span>
+                  </>
+                )}
+                {message.status === 'processing' && (
+                  <>
+                    <span>•</span>
+                    <span className="text-blue-500">Thinking...</span>
+                  </>
+                )}
+                {message.status === 'error' && (
+                  <>
+                    <span>•</span>
+                    <span className="text-red-500">Error</span>
+                  </>
+                )}
+                {!isUser && message.status === 'complete' && !isStreaming && (
+                  <button
+                    onClick={() => handleCopy(message.content, message.id)}
+                    className="flex items-center gap-1 hover:text-gray-400 transition-colors"
+                    title="Copy message"
+                  >
+                    {copiedId === message.id ? (
+                      <>
+                        <Check className="w-3 h-3" />
+                        <span>Copied</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
+      {isLoading && messages.length > 0 && messages[messages.length - 1]?.role === 'user' && (
+        <div className="flex gap-4">
+          <div className="flex-shrink-0 w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-800 border border-gray-600 flex items-center justify-center">
+            <Bot className="w-5 h-5 text-gray-300" />
+          </div>
+          <div className="flex-1 max-w-3xl">
+            <div className="inline-block px-5 py-4 rounded-2xl bg-gray-900 border border-gray-800">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-2 h-2 bg-red-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
+            </div>
+            <div className="mt-2 text-xs font-mono text-gray-600">
+              Analyzing your request with table context...
             </div>
           </div>
         </div>
       )}
 
-      {/* Scroll anchor */}
       <div ref={messagesEndRef} />
     </div>
   );
