@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Square } from 'lucide-react';
+import { Send, Square, Database } from 'lucide-react';
 
 export interface NewChatInputProps {
   onSubmit?: (message: string) => void | Promise<void>;
@@ -7,6 +7,8 @@ export interface NewChatInputProps {
   disabled?: boolean;
   isLoading?: boolean;
   placeholder?: string;
+  includeTablesInContext?: boolean;
+  onToggleTableContext?: () => void;
 }
 
 const NewChatInput: React.FC<NewChatInputProps> = ({
@@ -15,6 +17,8 @@ const NewChatInput: React.FC<NewChatInputProps> = ({
   disabled = false,
   isLoading = false,
   placeholder = "Ask about your circuit design...",
+  includeTablesInContext = false,
+  onToggleTableContext,
 }) => {
   const [message, setMessage] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -81,6 +85,7 @@ const NewChatInput: React.FC<NewChatInputProps> = ({
             className="flex-1 px-4 py-3 bg-gray-800 text-gray-100 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] max-h-[200px] font-sans text-sm"
             style={{ overflow: 'hidden' }}
           />
+        
           
           {isLoading ? (
             <button
@@ -102,6 +107,28 @@ const NewChatInput: React.FC<NewChatInputProps> = ({
               <Send className="w-5 h-5" />
             </button>
           )}
+
+          {/* Table Context Toggle Button */}
+          {onToggleTableContext && (
+            <button
+              type="button"
+              onClick={onToggleTableContext}
+              disabled={disabled}
+              className={`flex-shrink-0 p-3 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-red-500 relative ${
+                includeTablesInContext
+                  ? 'bg-blue-600 text-white hover:bg-blue-700'
+                  : 'bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-gray-300'
+              } disabled:opacity-50 disabled:cursor-not-allowed`}
+              title={includeTablesInContext 
+                ? 'Table context enabled - Click to disable' 
+                : 'Table context disabled - Click to enable'}
+            >
+              <Database className="w-5 h-5" />
+              {includeTablesInContext && (
+                <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              )}
+            </button>
+          )}
         </div>
         
         <div className="mt-2 flex items-center justify-between text-xs text-gray-500">
@@ -109,10 +136,10 @@ const NewChatInput: React.FC<NewChatInputProps> = ({
             {isLoading ? (
               <span className="flex items-center gap-2">
                 <span className="inline-block w-1 h-1 bg-red-500 rounded-full animate-pulse"></span>
-                Generating response... Press Escape or click ⬛ to stop
+                Generating response... Press Escape or click Red Button to stop
               </span>
             ) : (
-              'Press Enter to send, Shift+Enter for new line'
+              'Press Table Icon to include table context, Enter to send, Shift+Enter for new line'
             )}
           </span>
           <span className="text-gray-600">

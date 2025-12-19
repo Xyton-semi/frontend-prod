@@ -75,14 +75,49 @@ const parseUserMessage = (content: string): ParsedMessage => {
 
 const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const prevStatusRef = useRef<{ [key: string]: string }>({});
   const hasStreamedRef = useRef<{ [key: string]: boolean }>({});
   const [displayedContent, setDisplayedContent] = useState<{ [key: string]: string }>({});
+  
+  // Track if user has manually scrolled up
+  const [userHasScrolled, setUserHasScrolled] = useState(false);
+  const autoScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Detect user scroll
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    const scrollContainer = scrollContainerRef.current;
+    if (!scrollContainer) return;
+
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+      
+      // If user scrolls up more than 100px from bottom, disable auto-scroll
+      if (distanceFromBottom > 100) {
+        setUserHasScrolled(true);
+        
+        // Clear any existing timeout
+        if (autoScrollTimeoutRef.current) {
+          clearTimeout(autoScrollTimeoutRef.current);
+        }
+      } else {
+        // User is near bottom, re-enable auto-scroll
+        setUserHasScrolled(false);
+      }
+    };
+
+    scrollContainer.addEventListener('scroll', handleScroll);
+    return () => scrollContainer.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Auto-scroll only if user hasn't scrolled up
+  useEffect(() => {
+    if (!userHasScrolled) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, userHasScrolled]);
 
   // Streaming effect - only depends on messages
   useEffect(() => {
@@ -127,7 +162,7 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
         });
       }
     });
-  }, [messages]);
+  }, [messages, displayedContent]);
 
   const handleCopy = async (content: string, messageId: string) => {
     try {
@@ -141,32 +176,32 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
 
   // Helper to format timestamp
   const formatTime = (timestamp: string | Date): string => {
-  if (!timestamp) return '';
-  
-  try {
-    let date: Date;
+    if (!timestamp) return '';
+    
+    try {
+      let date: Date;
 
-    if (timestamp instanceof Date) {
-      date = timestamp;
-    } else {
-      // It's a string: check if it's a Unix timestamp (digits only) or ISO string
-      date = /^\d+$/.test(timestamp) 
-        ? new Date(parseInt(timestamp)) 
-        : new Date(timestamp);
+      if (timestamp instanceof Date) {
+        date = timestamp;
+      } else {
+        // It's a string: check if it's a Unix timestamp (digits only) or ISO string
+        date = /^\d+$/.test(timestamp) 
+          ? new Date(parseInt(timestamp)) 
+          : new Date(timestamp);
+      }
+
+      // Validate date
+      if (isNaN(date.getTime())) return '';
+
+      return date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    } catch {
+      return '';
     }
-
-    // Validate date
-    if (isNaN(date.getTime())) return '';
-
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    });
-  } catch {
-    return '';
-  }
-};
+  };
 
   if (messages.length === 0) {
     return (
@@ -205,7 +240,7 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
   }
 
   return (
-    <div className="flex-1 overflow-y-auto p-6 space-y-6">
+    <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-6 space-y-6">
       {messages.map((message) => {
         // Handle optional role - default to 'user' if undefined
         const isUser = message.role === 'user' || !message.role;

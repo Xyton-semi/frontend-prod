@@ -11,7 +11,7 @@ import { ThemeToggle } from '../ui/ThemeToggle';
 import { useConversation } from '@/hooks/useConversation';
 import { parseCSV } from '@/utils/data';
 
-import { FileSpreadsheet, FileCheck, Upload } from 'lucide-react';
+import { FileSpreadsheet, FileCheck, Upload, Database } from 'lucide-react';
 
 type DataTabType = 'pin-boundary' | 'feasibility' | 'simulation-plan' | 'custom-sheets';
 
@@ -610,49 +610,14 @@ const AppDashboard = () => {
             </div>
           )}
           
-          {/* Table Context Toggle */}
-          <div className="border-t border-gray-800 bg-gray-900 px-4 py-2">
-            <label className="flex items-center gap-3 cursor-pointer group">
-              <div className="relative">
-                <input
-                  type="checkbox"
-                  checked={includeTablesInContext}
-                  onChange={(e) => setIncludeTablesInContext(e.target.checked)}
-                  className="sr-only peer"
-                />
-                <div className="w-10 h-5 bg-gray-700 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-red-500 rounded-full peer peer-checked:after:translate-x-5 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-gray-400 after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600 peer-checked:after:bg-white"></div>
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-mono text-gray-300">
-                    Include table data in messages
-                  </span>
-                  {includeTablesInContext && (
-                    <span className="px-2 py-0.5 bg-red-900/30 text-red-400 text-xs font-mono rounded">
-                      ON
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  {includeTablesInContext 
-                    ? 'Table data will be sent with every message (uses more tokens)'
-                    : 'Table data will NOT be sent (saves tokens)'}
-                </p>
-              </div>
-              <div className="text-xs font-mono text-gray-600 group-hover:text-gray-400 transition-colors">
-                {includeTablesInContext 
-                  ? `~${(pinBoundaryData.length * 50 + requirementsData.length * 80 + simulationPlanData.length * 50)} tokens/msg`
-                  : 'Click to enable'}
-              </div>
-            </label>
-          </div>
-          
-          {/* Chat Input */}
+          {/* Chat Input - pass the toggle state and handler */}
           <NewChatInput 
             onSubmit={handleSendMessage}
             onStop={stopResponse}
             disabled={false}
             isLoading={isSending}
+            includeTablesInContext={includeTablesInContext}
+            onToggleTableContext={() => setIncludeTablesInContext(!includeTablesInContext)}
           />
         </div>
       </div>
