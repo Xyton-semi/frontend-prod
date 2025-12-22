@@ -82,7 +82,7 @@ const NewChatInput: React.FC<NewChatInputProps> = ({
             placeholder={placeholder}
             disabled={disabled || isLoading}
             rows={1}
-            className="flex-1 px-4 py-3 bg-gray-800 text-gray-100 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] max-h-[200px] font-sans text-sm"
+            className="flex-1 px-4 py-3 bg-black text-white rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50 disabled:cursor-not-allowed min-h-[48px] max-h-[200px] font-sans text-sm"
             style={{ overflow: 'hidden' }}
           />
         

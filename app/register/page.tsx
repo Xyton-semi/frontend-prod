@@ -12,10 +12,10 @@ export default function RegisterPage() {
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors">
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex justify-between items-center">
+      {/* <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex justify-between items-center">
         <Logo />
         <ThemeToggle />
-      </div>
+      </div> */}
 
       {/* Main Content */}
       <div className="py-8 px-4">

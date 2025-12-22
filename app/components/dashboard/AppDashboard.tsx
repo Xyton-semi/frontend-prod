@@ -11,7 +11,7 @@ import { ThemeToggle } from '../ui/ThemeToggle';
 import { useConversation } from '@/hooks/useConversation';
 import { parseCSV } from '@/utils/data';
 
-import { FileSpreadsheet, FileCheck, Upload, Database } from 'lucide-react';
+import { FileSpreadsheet, FileCheck, Upload, Database, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 type DataTabType = 'pin-boundary' | 'feasibility' | 'simulation-plan' | 'custom-sheets';
 
@@ -21,14 +21,14 @@ interface DataRow {
 }
 
 /**
- * AppDashboard - Chat with Data Tables Above
- * Layout: Left Sidebar | Center (Data Tables + Chat) | Right Panel
+ * AppDashboard - Chat with Data Tables in Right Sidebar
+ * Layout: Left Sidebar | Center (Chat) | Right Sidebar (Data Tables)
  */
 const AppDashboard = () => {
   const router = useRouter();
   const [activeDataTab, setActiveDataTab] = useState<DataTabType>('pin-boundary');
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
-  const [dataTablesVisible, setDataTablesVisible] = useState(false);
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [includeTablesInContext, setIncludeTablesInContext] = useState(false);
   
@@ -280,13 +280,13 @@ const AppDashboard = () => {
   }, [createNewConversation, isCheckingAuth]);
 
   /**
-   * Keyboard shortcut: Ctrl/Cmd + D to toggle data tables
+   * Keyboard shortcut: Ctrl/Cmd + D to toggle right sidebar
    */
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'd') {
         e.preventDefault();
-        setDataTablesVisible(prev => !prev);
+        setRightSidebarOpen(prev => !prev);
       }
     };
 
@@ -317,10 +317,31 @@ const AppDashboard = () => {
 
   return (
     <div className="flex h-screen w-full bg-gray-950 overflow-hidden">
+      {/* Top-left XYTON logo - appears when left sidebar is collapsed */}
+      {!leftSidebarOpen && (
+        <div className="absolute top-4 left-4 z-50 animate-in fade-in slide-in-from-left-4 duration-300">
+          <div className="flex items-center gap-3 px-4 py-2 bg-gray-900 border border-gray-800 rounded-lg shadow-lg">
+            <div className="text-red-600 font-mono font-bold text-xl tracking-wider">
+              XYTON
+            </div>
+            <div className="w-px h-6 bg-gray-700"></div>
+            <button
+              onClick={() => setLeftSidebarOpen(true)}
+              className="text-gray-500 hover:text-gray-300 transition-colors"
+              title="Show conversations"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top-right theme toggle */}
-      <div className="absolute top-4 right-4 z-50">
+      {/* <div className="absolute top-4 right-4 z-50">
         <ThemeToggle />
-      </div>
+      </div> */}
 
       {/* Error Toast */}
       {error && (
@@ -360,224 +381,8 @@ const AppDashboard = () => {
         isLoadingConversations={isLoading}
       />
 
-      {/* Center - Data Tables + Chat Interface */}
+      {/* Center - Chat Interface */}
       <div className="flex-1 flex flex-col bg-gray-950 min-w-0">
-        {/* Data Tables Section - Collapsible */}
-        {dataTablesVisible && (
-          <div className="flex-shrink-0 border-b border-gray-800 bg-gray-900">
-            {/* Tab Navigation */}
-            <div className="flex items-center border-b border-gray-800 px-6">
-              <button
-                onClick={() => setActiveDataTab('pin-boundary')}
-                className={`
-                  flex items-center gap-2 px-4 py-3 font-mono text-xs uppercase tracking-wider 
-                  transition-all relative
-                  ${activeDataTab === 'pin-boundary' 
-                    ? 'text-red-500 bg-gray-800' 
-                    : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
-                  }
-                `}
-              >
-                <FileSpreadsheet size={16} />
-                Pin & Boundary
-                {activeDataTab === 'pin-boundary' && (
-                  <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></div>
-                )}
-              </button>
-
-              <button
-                onClick={() => setActiveDataTab('feasibility')}
-                className={`
-                  flex items-center gap-2 px-4 py-3 font-mono text-xs uppercase tracking-wider 
-                  transition-all relative
-                  ${activeDataTab === 'feasibility' 
-                    ? 'text-red-500 bg-gray-800' 
-                    : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
-                  }
-                `}
-              >
-                <FileCheck size={16} />
-                Feasibility Check
-                {activeDataTab === 'feasibility' && (
-                  <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></div>
-                )}
-              </button>
-
-              <button
-                onClick={() => setActiveDataTab('simulation-plan')}
-                className={`
-                  flex items-center gap-2 px-4 py-3 font-mono text-xs uppercase tracking-wider 
-                  transition-all relative
-                  ${activeDataTab === 'simulation-plan' 
-                    ? 'text-red-500 bg-gray-800' 
-                    : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
-                  }
-                `}
-              >
-                <FileSpreadsheet size={16} />
-                Simulation Plan
-                {activeDataTab === 'simulation-plan' && (
-                  <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></div>
-                )}
-              </button>
-
-              <button
-                onClick={() => setActiveDataTab('custom-sheets')}
-                className={`
-                  flex items-center gap-2 px-4 py-3 font-mono text-xs uppercase tracking-wider 
-                  transition-all relative
-                  ${activeDataTab === 'custom-sheets' 
-                    ? 'text-red-500 bg-gray-800' 
-                    : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
-                  }
-                `}
-              >
-                <Upload size={16} />
-                Custom Sheets
-                {customSheets.length > 0 && (
-                  <span className="ml-1 px-1.5 py-0.5 bg-red-900/30 text-red-400 text-[10px] font-bold rounded">
-                    {customSheets.length}
-                  </span>
-                )}
-                {activeDataTab === 'custom-sheets' && (
-                  <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></div>
-                )}
-              </button>
-
-              <div className="ml-auto flex items-center gap-4">
-                {tablesModified && lastModifiedTime && (
-                  <div className="flex items-center gap-2 px-3 py-1 bg-green-900/20 border border-green-800 rounded">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-xs font-mono text-green-300 uppercase tracking-wider">
-                      Updated: {lastModifiedTime.split(',')[1]?.trim() || lastModifiedTime}
-                    </span>
-                  </div>
-                )}
-                
-                <span className="text-xs font-mono text-gray-600 uppercase">
-                  {activeDataTab === 'pin-boundary' 
-                    ? `${pinBoundaryData.length} rows` 
-                    : activeDataTab === 'feasibility'
-                    ? `${requirementsData.length} specs`
-                    : activeDataTab === 'simulation-plan'
-                    ? `${simulationPlanData.length} rows`
-                    : `${customSheets.length} sheets`}
-                </span>
-                
-                {/* Expand/Collapse for Custom Sheets */}
-                {activeDataTab === 'custom-sheets' && customSheets.length > 0 && (
-                  <button
-                    onClick={() => setCustomSheetsExpanded(!customSheetsExpanded)}
-                    className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded transition-colors"
-                    title={customSheetsExpanded ? "Shrink view" : "Expand view"}
-                  >
-                    {customSheetsExpanded ? (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                        Shrink
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                        </svg>
-                        Expand
-                      </>
-                    )}
-                  </button>
-                )}
-                
-                {/* Hide/Show Toggle */}
-                <button
-                  onClick={() => setDataTablesVisible(false)}
-                  className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded transition-colors"
-                  title="Hide data tables"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
-                  </svg>
-                  Hide
-                </button>
-              </div>
-            </div>
-
-            {/* Table Content */}
-            <div className={`overflow-hidden bg-gray-900 transition-all duration-300 ${
-              activeDataTab === 'custom-sheets' 
-                ? (customSheetsExpanded ? 'h-[80vh]' : 'h-[50vh]')
-                : 'h-[40vh]'
-            }`}>
-              {isLoadingData ? (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto mb-2"></div>
-                    <p className="text-sm font-mono text-gray-500 uppercase tracking-wider">
-                      Loading data...
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  {activeDataTab === 'pin-boundary' && (
-                    <EditablePinBoundaryTable
-                      initialData={pinBoundaryData}
-                      onSave={handlePinBoundarySave}
-                    />
-                  )}
-
-                  {activeDataTab === 'feasibility' && (
-                    <EditableRequirementsTable
-                      initialData={requirementsData}
-                      onSave={handleRequirementsSave}
-                    />
-                  )}
-
-                  {activeDataTab === 'simulation-plan' && (
-                    <EditablePinBoundaryTable
-                      initialData={simulationPlanData}
-                      onSave={handleSimulationPlanSave}
-                    />
-                  )}
-
-                  {activeDataTab === 'custom-sheets' && (
-                    <CustomSheetsManager
-                      sheets={customSheets}
-                      onSheetsChange={setCustomSheets}
-                      isExpanded={customSheetsExpanded}
-                    />
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Show Tables Button - When Hidden */}
-        {!dataTablesVisible && (
-          <div className="flex-shrink-0 border-b border-gray-800 bg-gray-900">
-            <div className="px-6 py-2 flex items-center justify-between">
-              <span className="text-xs font-mono text-gray-600 uppercase tracking-wider">
-                Data Tables Hidden
-              </span>
-              <button
-                onClick={() => setDataTablesVisible(true)}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs font-mono text-red-500 hover:text-red-400 hover:bg-gray-800 rounded transition-colors"
-                title="Show data tables (Ctrl/Cmd + D)"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-                Show Tables
-                <span className="ml-2 px-1.5 py-0.5 bg-gray-800 rounded text-[10px] text-gray-500">
-                  ⌘D
-                </span>
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* Chat Section */}
         <div className="flex-1 flex flex-col min-h-0 bg-gray-950 relative">
           {/* Chat Messages */}
@@ -621,6 +426,193 @@ const AppDashboard = () => {
           />
         </div>
       </div>
+
+      {/* Right Sidebar - Data Tables */}
+      <div className={`${rightSidebarOpen ? 'w-[500px]' : 'w-0'} flex-shrink-0 border-l border-gray-800 bg-gray-900 flex flex-col transition-all duration-300 ease-in-out overflow-hidden`}>
+        {rightSidebarOpen && (
+          <>
+            {/* Right Sidebar Header */}
+            <div className="flex-shrink-0 border-b border-gray-800 bg-gray-900 px-4 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Database size={18} className="text-red-500" />
+                <h3 className="text-sm font-mono font-semibold text-gray-200 uppercase tracking-wider">
+                  Data Tables
+                </h3>
+              </div>
+              <button
+                onClick={() => setRightSidebarOpen(false)}
+                className="p-1.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded transition-colors"
+                title="Close sidebar (Ctrl/Cmd + D)"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Tab Navigation */}
+            <div className="flex-shrink-0 border-b border-gray-800 bg-gray-900 overflow-x-auto">
+              <div className="flex items-center px-2">
+                <button
+                  onClick={() => setActiveDataTab('pin-boundary')}
+                  className={`
+                    flex items-center gap-2 px-3 py-2.5 font-mono text-xs uppercase tracking-wider 
+                    transition-all relative whitespace-nowrap
+                    ${activeDataTab === 'pin-boundary' 
+                      ? 'text-red-500 bg-gray-800' 
+                      : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
+                    }
+                  `}
+                >
+                  <FileSpreadsheet size={14} />
+                  Pin & Boundary
+                  {activeDataTab === 'pin-boundary' && (
+                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></div>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setActiveDataTab('feasibility')}
+                  className={`
+                    flex items-center gap-2 px-3 py-2.5 font-mono text-xs uppercase tracking-wider 
+                    transition-all relative whitespace-nowrap
+                    ${activeDataTab === 'feasibility' 
+                      ? 'text-red-500 bg-gray-800' 
+                      : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
+                    }
+                  `}
+                >
+                  <FileCheck size={14} />
+                  Feasibility
+                  {activeDataTab === 'feasibility' && (
+                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></div>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setActiveDataTab('simulation-plan')}
+                  className={`
+                    flex items-center gap-2 px-3 py-2.5 font-mono text-xs uppercase tracking-wider 
+                    transition-all relative whitespace-nowrap
+                    ${activeDataTab === 'simulation-plan' 
+                      ? 'text-red-500 bg-gray-800' 
+                      : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
+                    }
+                  `}
+                >
+                  <FileSpreadsheet size={14} />
+                  Simulation
+                  {activeDataTab === 'simulation-plan' && (
+                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></div>
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setActiveDataTab('custom-sheets')}
+                  className={`
+                    flex items-center gap-2 px-3 py-2.5 font-mono text-xs uppercase tracking-wider 
+                    transition-all relative whitespace-nowrap
+                    ${activeDataTab === 'custom-sheets' 
+                      ? 'text-red-500 bg-gray-800' 
+                      : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/50'
+                    }
+                  `}
+                >
+                  <Upload size={14} />
+                  Custom
+                  {customSheets.length > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 bg-red-900/30 text-red-400 text-[10px] font-bold rounded">
+                      {customSheets.length}
+                    </span>
+                  )}
+                  {activeDataTab === 'custom-sheets' && (
+                    <div className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600"></div>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Status Bar */}
+            <div className="flex-shrink-0 border-b border-gray-800 bg-gray-900 px-4 py-2 flex items-center justify-between">
+              <span className="text-xs font-mono text-gray-500">
+                {activeDataTab === 'pin-boundary' 
+                  ? `${pinBoundaryData.length} rows` 
+                  : activeDataTab === 'feasibility'
+                  ? `${requirementsData.length} specs`
+                  : activeDataTab === 'simulation-plan'
+                  ? `${simulationPlanData.length} rows`
+                  : `${customSheets.length} sheets`}
+              </span>
+              
+              {tablesModified && lastModifiedTime && (
+                <div className="flex items-center gap-2 px-2 py-1 bg-green-900/20 border border-green-800 rounded">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs font-mono text-green-300">
+                    Updated
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Table Content */}
+            <div className="flex-1 overflow-hidden bg-gray-950">
+              {isLoadingData ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto mb-2"></div>
+                    <p className="text-sm font-mono text-gray-500 uppercase tracking-wider">
+                      Loading data...
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {activeDataTab === 'pin-boundary' && (
+                    <EditablePinBoundaryTable
+                      initialData={pinBoundaryData}
+                      onSave={handlePinBoundarySave}
+                    />
+                  )}
+
+                  {activeDataTab === 'feasibility' && (
+                    <EditableRequirementsTable
+                      initialData={requirementsData}
+                      onSave={handleRequirementsSave}
+                    />
+                  )}
+
+                  {activeDataTab === 'simulation-plan' && (
+                    <EditablePinBoundaryTable
+                      initialData={simulationPlanData}
+                      onSave={handleSimulationPlanSave}
+                    />
+                  )}
+
+                  {activeDataTab === 'custom-sheets' && (
+                    <CustomSheetsManager
+                      sheets={customSheets}
+                      onSheetsChange={setCustomSheets}
+                      isExpanded={customSheetsExpanded}
+                    />
+                  )}
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Toggle Right Sidebar Button - When Hidden */}
+      {!rightSidebarOpen && (
+        <div className="absolute right-0 top-1/2 -translate-y-1/2 z-40">
+          <button
+            onClick={() => setRightSidebarOpen(true)}
+            className="flex items-center gap-2 px-3 py-4 bg-gray-900 border border-gray-800 border-r-0 rounded-l-lg text-gray-400 hover:text-gray-200 hover:bg-gray-800 transition-colors shadow-lg"
+            title="Show data tables (Ctrl/Cmd + D)"
+          >
+            <ChevronLeft size={18} />
+            <Database size={16} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

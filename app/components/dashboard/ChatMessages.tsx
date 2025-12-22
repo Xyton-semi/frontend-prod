@@ -207,8 +207,8 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
     return (
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="text-center max-w-2xl">
-          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-red-900/20 to-red-600/20 flex items-center justify-center">
-            <Bot className="w-10 h-10 text-red-500" />
+          <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-gray-700/40 to-black/40 flex items-center justify-center">
+            <Bot className="w-10 h-10 text-red-900" />
           </div>
           <h2 className="text-2xl font-mono font-bold text-gray-200 mb-3">
             Start a New Conversation

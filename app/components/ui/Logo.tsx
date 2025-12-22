@@ -5,7 +5,7 @@ interface LogoProps {
 }
 
 const Logo: React.FC<LogoProps> = ({ className = "" }) => (
-  <div className={`flex items-center font-bold text-xl tracking-widest text-red-600 ${className}`}>
+  <div className={`flex items-center font-bold text-xl tracking-widest text-red-900 ${className}`}>
     XYTON
   </div>
 );

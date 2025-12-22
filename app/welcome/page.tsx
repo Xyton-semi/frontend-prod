@@ -69,7 +69,7 @@ export default function WelcomePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-red-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800 flex flex-col transition-colors">
+    <div className="min-h-screen bg-gradient-to-br from-white via-gray-50 to-red-50 dark:from-black dark:via-black dark:to-gray-900 flex flex-col transition-colors">
       {/* Header */}
       <div className="w-full px-6 py-4 flex justify-between items-center">
         <Logo className="text-2xl" />
@@ -80,7 +80,7 @@ export default function WelcomePage() {
           >
             Sign In
           </button>
-          <ThemeToggle />
+          {/* <ThemeToggle /> */}
         </div>
       </div>
 

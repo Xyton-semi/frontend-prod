@@ -1,13 +1,17 @@
 @import "tailwindcss";
 
-/* Light mode - default */
+/* Light mode - Black theme */
 :root {
   color-scheme: light;
-  --bg-primary: #ffffff;
-  --bg-secondary: #f3f4f6;
-  --text-primary: #000000;
-  --text-secondary: #374151;
-  --border-color: #e5e7eb;
+  --bg-primary: #000000;
+  --bg-secondary: #0a0a0a;
+  --bg-tertiary: #141414;
+  --bg-card: #1a1a1a;
+  --text-primary: #ffffff;
+  --text-secondary: #e5e5e5;
+  --text-tertiary: #b3b3b3;
+  --border-color: #262626;
+  --border-light: #1a1a1a;
 }
 
 body {
@@ -16,15 +20,19 @@ body {
   transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-/* Dark mode - dark grayish-blue backgrounds */
+/* Dark mode - Even darker black theme */
 html.dark,
 [data-theme="dark"] {
   color-scheme: dark;
-  --bg-primary: #1a1f2e;
-  --bg-secondary: #162745;
-  --text-primary: #e5e7eb;
-  --text-secondary: #d1d5db;
-  --border-color: #3f4758;
+  --bg-primary: #000000;
+  --bg-secondary: #050505;
+  --bg-tertiary: #0a0a0a;
+  --bg-card: #0d0d0d;
+  --text-primary: #ffffff;
+  --text-secondary: #e5e5e5;
+  --text-tertiary: #b3b3b3;
+  --border-color: #1a1a1a;
+  --border-light: #0f0f0f;
 }
 
 html.dark body,
@@ -39,39 +47,241 @@ html.dark main,
   color: var(--text-primary);
 }
 
-/* Override specific Tailwind background colors */
-[class*="bg-white"] {
-  background-color: var(--bg-primary) !important;
+/* Global overrides for consistent black theme */
+.bg-white {
+  background-color: #000000 !important;
 }
 
-[class*="bg-gray-50"] {
-  background-color: var(--bg-secondary) !important;
+.bg-gray-50 {
+  background-color: #0a0a0a !important;
 }
 
-[class*="bg-gray-100"] {
-  background-color: var(--bg-secondary) !important;
+.bg-gray-100 {
+  background-color: #141414 !important;
 }
 
-/* Override text colors */
-[class*="text-gray-900"] {
-  color: var(--text-primary) !important;
+.bg-gray-200 {
+  background-color: #1a1a1a !important;
 }
 
-[class*="text-gray-700"] {
-  color: var(--text-secondary) !important;
+.bg-gray-300 {
+  background-color: #262626 !important;
 }
 
-[class*="text-gray-600"] {
-  color: var(--text-secondary) !important;
+.bg-gray-400 {
+  background-color: #333333 !important;
 }
 
-/* Override borders */
-[class*="border-gray-200"] {
-  border-color: var(--border-color) !important;
+.bg-gray-500 {
+  background-color: #404040 !important;
 }
 
-[class*="border-gray-300"] {
-  border-color: var(--border-color) !important;
+.bg-gray-600 {
+  background-color: #4d4d4d !important;
+}
+
+.bg-gray-700 {
+  background-color: #0d0d0d !important;
+}
+
+.bg-gray-800 {
+  background-color: #0a0a0a !important;
+}
+
+.bg-gray-850 {
+  background-color: #0f0f0f !important;
+}
+
+.bg-gray-900 {
+  background-color: #050505 !important;
+}
+
+.bg-gray-950 {
+  background-color: #020202 !important;
+}
+
+/* Text colors */
+.text-gray-100 {
+  color: #ffffff !important;
+}
+
+.text-gray-200 {
+  color: #f5f5f5 !important;
+}
+
+.text-gray-300 {
+  color: #e5e5e5 !important;
+}
+
+.text-gray-400 {
+  color: #d4d4d4 !important;
+}
+
+.text-gray-500 {
+  color: #b3b3b3 !important;
+}
+
+.text-gray-600 {
+  color: #999999 !important;
+}
+
+.text-gray-700 {
+  color: #808080 !important;
+}
+
+.text-gray-800 {
+  color: #f5f5f5 !important;
+}
+
+.text-gray-900 {
+  color: #ffffff !important;
+}
+
+/* Border colors */
+.border-gray-100 {
+  border-color: #1a1a1a !important;
+}
+
+.border-gray-200 {
+  border-color: #262626 !important;
+}
+
+.border-gray-300 {
+  border-color: #333333 !important;
+}
+
+.border-gray-400 {
+  border-color: #404040 !important;
+}
+
+.border-gray-500 {
+  border-color: #4d4d4d !important;
+}
+
+.border-gray-600 {
+  border-color: #333333 !important;
+}
+
+.border-gray-700 {
+  border-color: #262626 !important;
+}
+
+.border-gray-800 {
+  border-color: #1a1a1a !important;
+}
+
+/* Hover states */
+.hover\:bg-gray-50:hover {
+  background-color: #0a0a0a !important;
+}
+
+.hover\:bg-gray-100:hover {
+  background-color: #141414 !important;
+}
+
+.hover\:bg-gray-200:hover {
+  background-color: #1a1a1a !important;
+}
+
+.hover\:bg-gray-700:hover {
+  background-color: #0f0f0f !important;
+}
+
+.hover\:bg-gray-800:hover {
+  background-color: #0d0d0d !important;
+}
+
+.hover\:text-gray-200:hover {
+  color: #f5f5f5 !important;
+}
+
+.hover\:text-gray-300:hover {
+  color: #e5e5e5 !important;
+}
+
+.hover\:text-gray-900:hover {
+  color: #ffffff !important;
+}
+
+/* Dark mode overrides */
+html.dark .dark\:bg-gray-700,
+[data-theme="dark"] .dark\:bg-gray-700 {
+  background-color: #0d0d0d !important;
+}
+
+html.dark .dark\:bg-gray-800,
+[data-theme="dark"] .dark\:bg-gray-800 {
+  background-color: #0a0a0a !important;
+}
+
+html.dark .dark\:bg-gray-900,
+[data-theme="dark"] .dark\:bg-gray-900 {
+  background-color: #050505 !important;
+}
+
+html.dark .dark\:bg-gray-950,
+[data-theme="dark"] .dark\:bg-gray-950 {
+  background-color: #020202 !important;
+}
+
+html.dark .dark\:text-gray-100,
+[data-theme="dark"] .dark\:text-gray-100 {
+  color: #ffffff !important;
+}
+
+html.dark .dark\:text-gray-200,
+[data-theme="dark"] .dark\:text-gray-200 {
+  color: #f5f5f5 !important;
+}
+
+html.dark .dark\:text-gray-300,
+[data-theme="dark"] .dark\:text-gray-300 {
+  color: #e5e5e5 !important;
+}
+
+html.dark .dark\:text-gray-400,
+[data-theme="dark"] .dark\:text-gray-400 {
+  color: #d4d4d4 !important;
+}
+
+html.dark .dark\:text-white,
+[data-theme="dark"] .dark\:text-white {
+  color: #ffffff !important;
+}
+
+html.dark .dark\:border-gray-600,
+[data-theme="dark"] .dark\:border-gray-600 {
+  border-color: #333333 !important;
+}
+
+html.dark .dark\:border-gray-700,
+[data-theme="dark"] .dark\:border-gray-700 {
+  border-color: #262626 !important;
+}
+
+html.dark .dark\:border-gray-800,
+[data-theme="dark"] .dark\:border-gray-800 {
+  border-color: #1a1a1a !important;
+}
+
+html.dark .dark\:hover\:bg-gray-700:hover,
+[data-theme="dark"] .dark\:hover\:bg-gray-700:hover {
+  background-color: #0f0f0f !important;
+}
+
+html.dark .dark\:hover\:text-gray-200:hover,
+[data-theme="dark"] .dark\:hover\:text-gray-200:hover {
+  color: #f5f5f5 !important;
+}
+
+/* Disabled states */
+.disabled\:bg-gray-300:disabled {
+  background-color: #262626 !important;
+}
+
+html.dark .dark\:disabled\:bg-gray-600:disabled,
+[data-theme="dark"] .dark\:disabled\:bg-gray-600:disabled {
+  background-color: #333333 !important;
 }
 
 /* Custom scrollbar styles */
@@ -84,22 +294,74 @@ html.dark main,
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #d1d5db;
+  background: #333333;
   border-radius: 3px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
+  background: #404040;
 }
 
 html.dark .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #4b5563;
+  background: #262626;
 }
 
 html.dark .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: #6b7280;
+  background: #333333;
 }
 
 .scrollbar-none::-webkit-scrollbar {
   display: none;
+}
+
+/* Special cases for contrast */
+.prose {
+  color: #e5e5e5;
+}
+
+.prose h1,
+.prose h2,
+.prose h3 {
+  color: #ffffff;
+}
+
+.prose code {
+  background-color: #0d0d0d;
+  color: #f5f5f5;
+}
+
+.prose pre {
+  background-color: #0a0a0a;
+  border: 1px solid #262626;
+}
+
+/* Input and form elements */
+input,
+textarea,
+select {
+  background-color: #0d0d0d;
+  color: #ffffff;
+  border-color: #262626;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #666666;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  background-color: #0a0a0a;
+  border-color: #404040;
+}
+
+/* Button overrides */
+button:not(.bg-red-600):not([class*="bg-red"]):not([class*="bg-blue"]):not([class*="bg-green"]):not([class*="bg-yellow"]) {
+  background-color: #1a1a1a;
+  color: #ffffff;
+}
+
+button:not(.bg-red-600):not([class*="bg-red"]):not([class*="bg-blue"]):not([class*="bg-green"]):not([class*="bg-yellow"]):hover {
+  background-color: #262626;
 }
