@@ -321,7 +321,7 @@ const AppDashboard = () => {
       {!leftSidebarOpen && (
         <div className="absolute top-4 left-4 z-50 animate-in fade-in slide-in-from-left-4 duration-300">
           <div className="flex items-center gap-3 px-4 py-2 bg-gray-900 border border-gray-800 rounded-lg shadow-lg">
-            <div className="text-red-600 font-mono font-bold text-xl tracking-wider">
+            <div className="text-red-800 font-mono font-bold text-xl tracking-wider">
               XYTON
             </div>
             <div className="w-px h-6 bg-gray-700"></div>

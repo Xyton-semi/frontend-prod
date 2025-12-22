@@ -2,7 +2,9 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Copy, Check, User, Bot, Database } from 'lucide-react';
+import { Copy, Check, User, Bot, Database, Paperclip, Download, ExternalLink } from 'lucide-react';
+import { getFileIcon, formatFileSize } from '@/utils/file-upload';
+import type { FileAttachment } from '@/utils/file-upload';
 
 // Dynamically import ReactMarkdown to avoid SSR issues
 const ReactMarkdown = dynamic(() => import('react-markdown'), {
@@ -22,10 +24,12 @@ import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 // Match the API's Message type exactly
 interface Message {
   id: string;
-  role?: 'user' | 'assistant'; // Optional to match API
+  role?: 'user' | 'assistant';
   content: string;
   timestamp: Date | string;
   status?: 'sending' | 'processing' | 'complete' | 'error';
+  attachments?: FileAttachment[]; // Add attachments support
+  filenames?: string[]; // Backend may return filenames
 }
 
 interface ChatMessagesProps {
@@ -53,7 +57,6 @@ const parseUserMessage = (content: string): ParsedMessage => {
     if (index !== -1) {
       const actualMessage = content.substring(0, index).trim();
       
-      // Count which data sections were included
       const sections: string[] = [];
       if (content.includes('[CURRENT PIN & BOUNDARY DATA]')) sections.push('Pin/Boundary');
       if (content.includes('[CURRENT REQUIREMENTS DATA]')) sections.push('Requirements');
@@ -73,15 +76,48 @@ const parseUserMessage = (content: string): ParsedMessage => {
   };
 };
 
+/**
+ * File attachment display component
+ */
+const FileAttachmentDisplay: React.FC<{ 
+  attachment: FileAttachment;
+  filename?: string;
+}> = ({ attachment, filename }) => {
+  const displayName = filename || attachment.filename;
+  const fileType = attachment.type || '';
+  const isImage = fileType.startsWith('image/');
+
+  return (
+    <div className="inline-flex items-center gap-2 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg">
+      <span className="text-lg">{getFileIcon(fileType)}</span>
+      {isImage && attachment.previewUrl ? (
+        <div className="flex flex-col gap-2">
+          <img 
+            src={attachment.previewUrl} 
+            alt={displayName}
+            className="max-w-[200px] max-h-[150px] rounded object-cover"
+          />
+          <span className="text-xs text-gray-400">{displayName}</span>
+        </div>
+      ) : (
+        <div className="flex flex-col">
+          <span className="text-sm text-gray-200">{displayName}</span>
+          {attachment.file && (
+            <span className="text-xs text-gray-500">
+              {formatFileSize(attachment.file.size)}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const prevStatusRef = useRef<{ [key: string]: string }>({});
-  const hasStreamedRef = useRef<{ [key: string]: boolean }>({});
-  const [displayedContent, setDisplayedContent] = useState<{ [key: string]: string }>({});
   
-  // Track if user has manually scrolled up
   const [userHasScrolled, setUserHasScrolled] = useState(false);
   const autoScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -94,16 +130,13 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
       const { scrollTop, scrollHeight, clientHeight } = scrollContainer;
       const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
       
-      // If user scrolls up more than 100px from bottom, disable auto-scroll
       if (distanceFromBottom > 100) {
         setUserHasScrolled(true);
         
-        // Clear any existing timeout
         if (autoScrollTimeoutRef.current) {
           clearTimeout(autoScrollTimeoutRef.current);
         }
       } else {
-        // User is near bottom, re-enable auto-scroll
         setUserHasScrolled(false);
       }
     };
@@ -119,51 +152,6 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
     }
   }, [messages, userHasScrolled]);
 
-  // Streaming effect - only depends on messages
-  useEffect(() => {
-    messages.forEach((message) => {
-      if (message.role !== 'assistant') return;
-
-      const prevStatus = prevStatusRef.current[message.id];
-      const justCompleted = prevStatus === 'processing' && message.status === 'complete';
-
-      // Start streaming for newly completed messages
-      if (justCompleted && !hasStreamedRef.current[message.id] && message.content.length > 0) {
-        hasStreamedRef.current[message.id] = true;
-        
-        let charIndex = 0;
-        const content = message.content;
-        
-        const streamInterval = setInterval(() => {
-          charIndex += 3;
-          
-          if (charIndex >= content.length) {
-            setDisplayedContent(prev => ({ ...prev, [message.id]: content }));
-            clearInterval(streamInterval);
-          } else {
-            setDisplayedContent(prev => ({ 
-              ...prev, 
-              [message.id]: content.substring(0, charIndex) 
-            }));
-          }
-        }, 10);
-
-        return () => clearInterval(streamInterval);
-      }
-
-      // Update previous status
-      prevStatusRef.current[message.id] = message.status || 'complete';
-
-      // For already complete messages (loaded from history), show immediately
-      if (message.status === 'complete' && message.content && !(message.id in displayedContent)) {
-        setDisplayedContent(prev => {
-          if (message.id in prev) return prev;
-          return { ...prev, [message.id]: message.content };
-        });
-      }
-    });
-  }, [messages, displayedContent]);
-
   const handleCopy = async (content: string, messageId: string) => {
     try {
       await navigator.clipboard.writeText(content);
@@ -174,7 +162,6 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
     }
   };
 
-  // Helper to format timestamp
   const formatTime = (timestamp: string | Date): string => {
     if (!timestamp) return '';
     
@@ -184,13 +171,11 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
       if (timestamp instanceof Date) {
         date = timestamp;
       } else {
-        // It's a string: check if it's a Unix timestamp (digits only) or ISO string
         date = /^\d+$/.test(timestamp) 
           ? new Date(parseInt(timestamp)) 
           : new Date(timestamp);
       }
 
-      // Validate date
       if (isNaN(date.getTime())) return '';
 
       return date.toLocaleTimeString('en-US', { 
@@ -215,7 +200,7 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
           </h2>
           <p className="text-gray-500 font-mono text-sm leading-relaxed">
             Ask questions about your circuit design, pin configurations, or requirements.
-            I can help analyze your data, suggest optimizations, and answer technical questions.
+            You can also attach images, PDFs, or other files to your messages.
           </p>
           <div className="mt-8 grid grid-cols-1 gap-3 text-left">
             <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg hover:border-red-800 transition-colors cursor-pointer">
@@ -230,7 +215,7 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
             </div>
             <div className="p-4 bg-gray-900 border border-gray-800 rounded-lg hover:border-red-800 transition-colors cursor-pointer">
               <p className="text-sm font-mono text-gray-400">
-                💡 &quot;Suggest simulation test cases for my LDO&quot;
+                💡 &quot;Here's my circuit schematic (attach image)&quot;
               </p>
             </div>
           </div>
@@ -242,15 +227,9 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
   return (
     <div ref={scrollContainerRef} className="flex-1 overflow-y-auto p-6 space-y-6">
       {messages.map((message) => {
-        // Handle optional role - default to 'user' if undefined
         const isUser = message.role === 'user' || !message.role;
-        const currentContent = displayedContent[message.id] || message.content;
-        const isStreaming = message.role === 'assistant' && 
-                           message.status === 'processing' || 
-                           (displayedContent[message.id] && 
-                            displayedContent[message.id].length < message.content.length);
+        const isStreaming = message.role === 'assistant' && message.status === 'processing';
         
-        // Parse user message to extract actual message and context info
         let displayContent: string;
         let hasTableContext = false;
         let contextInfo: string | undefined;
@@ -261,8 +240,12 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
           hasTableContext = parsed.hasTableContext;
           contextInfo = parsed.contextInfo;
         } else {
-          displayContent = currentContent;
+          displayContent = message.content;
         }
+
+        // Check for attachments
+        const hasAttachments = (message.attachments && message.attachments.length > 0) || 
+                              (message.filenames && message.filenames.length > 0);
 
         return (
           <div
@@ -272,7 +255,7 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
             {/* Avatar */}
             <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center ${
               isUser 
-                ? 'bg-gradient-to-br from-red-600 to-red-700' 
+                ? 'bg-gradient-to-br from-blue-800 to-red-700' 
                 : 'bg-gradient-to-br from-gray-700 to-gray-800 border border-gray-600'
             }`}>
               {isUser ? (
@@ -295,21 +278,38 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
                 </div>
               )}
 
+              {/* File Attachments */}
+              {hasAttachments && (
+                <div className={`mb-2 flex flex-wrap gap-2 ${isUser ? 'justify-end' : 'justify-start'}`}>
+                  {message.attachments?.map((attachment, idx) => (
+                    <FileAttachmentDisplay 
+                      key={idx} 
+                      attachment={attachment}
+                      filename={message.filenames?.[idx]}
+                    />
+                  ))}
+                  {!message.attachments && message.filenames?.map((filename, idx) => (
+                    <div key={idx} className="inline-flex items-center gap-2 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg">
+                      <Paperclip className="w-4 h-4 text-gray-400" />
+                      <span className="text-sm text-gray-200">{filename}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Message Bubble */}
               <div
                 className={`inline-block px-5 py-4 rounded-2xl ${
                   isUser
-                    ? 'bg-gradient-to-br from-red-600 to-red-700 text-white'
+                    ? 'bg-gradient-to-br from-red-800 to-blue-800 text-white'
                     : 'bg-gray-900 border border-gray-800 text-gray-200'
-                } ${hasTableContext ? 'clear-both' : ''}`}
+                } ${hasTableContext || hasAttachments ? 'clear-both' : ''}`}
               >
                 {isUser ? (
-                  // User messages: simple text display
                   <p className="text-sm font-mono whitespace-pre-wrap break-words">
                     {displayContent}
                   </p>
                 ) : (
-                  // Assistant messages: markdown rendering
                   <div className="prose prose-invert prose-sm max-w-none">
                     <ReactMarkdown
                       components={{
@@ -492,7 +492,7 @@ const ChatMessages: React.FC<ChatMessagesProps> = ({ messages, isLoading = false
               </div>
             </div>
             <div className="mt-2 text-xs font-mono text-gray-600">
-              Analyzing your request with table context...
+              Analyzing your request...
             </div>
           </div>
         </div>

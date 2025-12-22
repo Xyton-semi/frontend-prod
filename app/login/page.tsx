@@ -21,12 +21,12 @@ export default function LoginPage() {
       <div className="py-8 px-4">
         <div className="w-full max-w-md mx-auto">
           {/* Tab Navigation */}
-          <div className="bg-white dark:bg-gray-800 rounded-t-lg border-b border-gray-200 dark:border-gray-700 flex">
+          <div className="bg-white text-white dark:bg-gray-800 rounded-t-lg border-b border-gray-200 dark:border-gray-700 flex">
             <button
               onClick={() => setActiveTab('login')}
               className={`flex-1 py-2.5 px-4 rounded-tl-lg text-sm font-medium transition-colors ${
                 activeTab === 'login'
-                  ? 'text-red-600 border-b-2 border-red-600 bg-red-50 dark:bg-red-950'
+                  ? 'border-b-2 border-red-600 bg-red-50 dark:bg-red-950'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
               }`}
             >
@@ -34,7 +34,7 @@ export default function LoginPage() {
             </button>
             <button
               onClick={() => setActiveTab('register')}
-              className={`flex-1 py-2.5 px-4 rounded-tr-lg text-sm font-medium transition-colors ${
+              className={`flex-1 py-2.5 text-white px-4 rounded-tr-lg text-sm font-medium transition-colors ${
                 activeTab === 'register'
                   ? 'text-red-600 border-b-2 border-red-600 bg-red-50 dark:bg-red-950'
                   : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'

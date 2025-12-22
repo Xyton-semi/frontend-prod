@@ -185,7 +185,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSwitchToRegister }) => {
         <button
           type="submit"
           disabled={isSubmitting || submitStatus === 'success'}
-          className="w-full py-2.5 px-4 bg-red-600 hover:bg-red-700 dark:hover:bg-red-800 text-white text-sm font-medium rounded-lg disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
+          className="w-full py-2.5 px-4 bg-red-800 hover:bg-red-700 dark:hover:bg-red-700 text-white text-sm font-medium rounded-lg disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center space-x-2"
         >
           {isSubmitting ? (
             <>

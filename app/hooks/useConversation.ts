@@ -13,6 +13,7 @@ import {
   type Conversation,
   type Message,
 } from '@/utils/conversation-api';
+import type { FileAttachment } from '@/utils/file-upload';
 
 interface UseConversationResult {
   // State
@@ -26,9 +27,9 @@ interface UseConversationResult {
 
   // Actions
   loadConversations: () => Promise<void>;
-  createNewConversation: (initialMessage: string) => Promise<string>;
+  createNewConversation: (initialMessage: string, attachments?: FileAttachment[]) => Promise<string>;
   selectConversation: (conversationId: string) => void;
-  sendMessage: (message: string) => Promise<void>;
+  sendMessage: (message: string, attachments?: FileAttachment[]) => Promise<void>;
   stopResponse: () => void;
   deleteConversation: (conversationId: string) => Promise<void>;
   clearError: () => void;
@@ -113,9 +114,12 @@ export function useConversation(): UseConversationResult {
   }, [loadMessages]);
 
   /**
-   * Create a new conversation with an initial message
+   * Create a new conversation with an initial message and optional attachments
    */
-  const createNewConversation = useCallback(async (initialMessage: string): Promise<string> => {
+  const createNewConversation = useCallback(async (
+    initialMessage: string,
+    attachments?: FileAttachment[]
+  ): Promise<string> => {
     setIsSending(true);
     setError(null);
 
@@ -123,7 +127,9 @@ export function useConversation(): UseConversationResult {
       // Extract the original message (before table context if present)
       const originalMessage = initialMessage.split('\n\n[CURRENT')[0].trim();
       
-      const response = await startNewConversation(initialMessage);
+      console.log('Creating new conversation with', attachments?.length || 0, 'attachments');
+      
+      const response = await startNewConversation(initialMessage, attachments);
       const { conversation_id, message_id, timestamp } = response;
 
       const userMessage: Message = {
@@ -133,6 +139,8 @@ export function useConversation(): UseConversationResult {
         content: originalMessage,
         timestamp: timestamp || new Date().toISOString(),
         status: 'complete',
+        attachments: attachments, // Store attachments
+        filenames: attachments?.map(a => a.filename), // Store filenames
       };
 
       storeMessageLocally(conversation_id, userMessage);
@@ -167,9 +175,12 @@ export function useConversation(): UseConversationResult {
   }, [loadConversations]);
 
   /**
-   * Send a message in the current conversation
+   * Send a message in the current conversation with optional attachments
    */
-  const sendMessage = useCallback(async (messageContent: string) => {
+  const sendMessage = useCallback(async (
+    messageContent: string,
+    attachments?: FileAttachment[]
+  ) => {
     if (!currentConversationId) {
       setError('No conversation selected');
       return;
@@ -182,16 +193,24 @@ export function useConversation(): UseConversationResult {
       // Extract the original message (before table context if present)
       const originalMessage = messageContent.split('\n\n[CURRENT')[0].trim();
       
-      const response = await sendMessageInConversation(currentConversationId, messageContent);
+      console.log('Sending message with', attachments?.length || 0, 'attachments');
+      
+      const response = await sendMessageInConversation(
+        currentConversationId, 
+        messageContent,
+        attachments
+      );
       const { message_id, timestamp } = response;
 
       const userMessage: Message = {
         id: `user_${Date.now()}`,
         conversation_id: currentConversationId,
         role: 'user',
-        content: originalMessage, // Store only the original message for display
+        content: originalMessage,
         timestamp,
         status: 'complete',
+        attachments: attachments, // Store attachments
+        filenames: attachments?.map(a => a.filename), // Store filenames
       };
 
       storeMessageLocally(currentConversationId, userMessage);
@@ -342,7 +361,7 @@ export function useConversation(): UseConversationResult {
       pollingRef.current.delete(pollKey);
       abortControllers.current.delete(messageId);
     }
-  }, [loadConversations]);
+  }, [loadConversations, currentConversationId]);
 
   /**
    * Stream a message character by character

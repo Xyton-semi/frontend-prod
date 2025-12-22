@@ -143,7 +143,7 @@ const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin }) => {
   };
 
   return (
-    <div className="w-full p-4 sm:p-6">
+    <div className="w-full max-h-[calc(100vh-100px)] overflow-y-auto p-4 sm:p-6">
       {/* Header */}
       <div className="text-center mb-4">  
         <div className="inline-flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-red-50 dark:bg-red-950 rounded-full mb-2">

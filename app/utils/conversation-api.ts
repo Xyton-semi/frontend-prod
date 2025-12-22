@@ -1,9 +1,11 @@
 /**
- * Conversation API Client - WITH DELETE SUPPORT
+ * Conversation API Client - WITH FILE ATTACHMENT SUPPORT
  * 
  * All API endpoints for managing conversations and messages.
  * Uses AWS Cognito access_token for authentication.
  */
+
+import type { FileAttachment } from './file-upload';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://7j7y34kk48.execute-api.us-east-1.amazonaws.com/v1';
 
@@ -74,11 +76,19 @@ export interface Message {
   error?: string;
   index?: number;
   message_by?: 'user' | 'model';
+  attachments?: FileAttachment[];
+  filenames?: string[];
 }
 
 export interface DeleteConversationResponse {
   success: boolean;
   message: string;
+}
+
+export interface MessageWithAttachments {
+  query: string;
+  user_id: string;
+  filename?: string[]; // API expects 'filename' (singular) but it's an array
 }
 
 // ============================================================================
@@ -155,11 +165,36 @@ export async function getAllConversations(): Promise<Conversation[]> {
   }
 }
 
-export async function startNewConversation(query: string): Promise<NewQueryResponse> {
+/**
+ * Start a new conversation with optional file attachments
+ * If attachments are present, uses the conversation_id from presigned URL
+ */
+export async function startNewConversation(
+  query: string,
+  attachments?: FileAttachment[]
+): Promise<NewQueryResponse> {
   try {
     const userEmail = getUserEmail();
     const headers = getAuthHeaders();
 
+    // If we have attachments, use the conversation_id from the first attachment
+    // (all attachments should have the same conversation_id from presigned URL)
+    const conversationId = attachments && attachments.length > 0 
+      ? attachments[0].conversationId 
+      : undefined;
+
+    // If we have a conversation ID from attachments, use the existing message endpoint
+    if (conversationId) {
+      console.log('Using conversation ID from attachments:', conversationId);
+      const messageResponse = await sendMessageInConversation(conversationId, query, attachments);
+      // Convert NewMessageResponse to NewQueryResponse by adding conversation_id
+      return {
+        ...messageResponse,
+        conversation_id: conversationId,
+      };
+    }
+
+    // Otherwise, create new conversation without attachments
     const url = USE_PROXY 
       ? buildApiUrl('/new_query')
       : `${API_BASE_URL}/new_query`;
@@ -194,9 +229,13 @@ export async function startNewConversation(query: string): Promise<NewQueryRespo
   }
 }
 
+/**
+ * Send a message in an existing conversation with optional file attachments
+ */
 export async function sendMessageInConversation(
   conversationId: string,
-  query: string
+  query: string,
+  attachments?: FileAttachment[]
 ): Promise<NewMessageResponse> {
   try {
     const userEmail = getUserEmail();
@@ -206,13 +245,21 @@ export async function sendMessageInConversation(
       ? buildApiUrl(`/conversation/${conversationId}/message`)
       : `${API_BASE_URL}/conversation/${conversationId}/message`;
 
+    const requestBody: MessageWithAttachments = {
+      query: query,
+      user_id: userEmail,
+    };
+
+    // Add filename if attachments are present
+    if (attachments && attachments.length > 0) {
+      requestBody.filename = attachments.map(att => att.filename);
+      console.log('Sending message with filename:', requestBody.filename);
+    }
+
     const response = await fetch(url, {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        query: query,
-        user_id: userEmail,
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     if (!response.ok) {
@@ -266,6 +313,12 @@ export async function pollMessageStatus(
     }
 
     const data: MessageStatusResponse = await response.json();
+    
+    // Strip thinking tags from the message content
+    if (data.message) {
+      data.message = stripThinkingTags(data.message);
+    }
+    
     return data;
   } catch (error) {
     console.error('Error polling message status:', error);
@@ -338,6 +391,59 @@ export async function pollUntilComplete(
 // CONVERSATION MESSAGES
 // ============================================================================
 
+/**
+ * Remove Claude's thinking content from message content
+ * Claude sometimes includes internal reasoning that should not be shown to users.
+ */
+function stripThinkingTags(content: string): string {
+  if (!content) return content;
+  
+  let cleaned = content;
+  
+  // First, remove content within thinking XML tags
+  cleaned = cleaned.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '');
+  cleaned = cleaned.replace(/<think>[\s\S]*?<\/think>/gi, '');
+  cleaned = cleaned.replace(/<antThinking>[\s\S]*?<\/antThinking>/gi, '');
+  cleaned = cleaned.replace(/<antthink>[\s\S]*?<\/antthink>/gi, '');
+  
+  // Handle raw thinking content (no XML tags)
+  // Strategy: Find the LAST occurrence of common thinking-to-response transitions
+  // and take everything after that point
+  
+  const thinkingMarkers = [
+    'Let me write that.',
+    'Alright, so the response should be',
+    'So the answer is:',
+    'The answer is:',
+    'So the response should be',
+    'The response should be',
+    'Here\'s the response:',
+    'My response:',
+    'I\'ll respond with:',
+    'Let me craft',
+    'I should respond with:',
+  ];
+  
+  // Find the last occurrence of any thinking marker
+  let lastMarkerIndex = -1;
+  let markerLength = 0;
+  
+  for (const marker of thinkingMarkers) {
+    const index = cleaned.lastIndexOf(marker);
+    if (index > lastMarkerIndex) {
+      lastMarkerIndex = index;
+      markerLength = marker.length;
+    }
+  }
+  
+  // If we found a marker, take everything after it
+  if (lastMarkerIndex !== -1) {
+    cleaned = cleaned.substring(lastMarkerIndex + markerLength).trim();
+  }
+  
+  return cleaned;
+}
+
 export async function getConversationMessages(
   conversationId: string
 ): Promise<Message[]> {
@@ -380,15 +486,21 @@ export async function getConversationMessages(
     const messages: Message[] = (data.messages || []).map((msg: any) => {
       const role = msg.message_by === 'user' ? 'user' : 'assistant';
       
+      // Strip thinking tags from assistant messages
+      const cleanContent = role === 'assistant' 
+        ? stripThinkingTags(msg.content || '')
+        : msg.content || '';
+      
       return {
         id: msg.id,
         conversation_id: conversationId,
         role: role,
-        content: msg.content || '',
+        content: cleanContent,
         timestamp: msg.timestamp || new Date().toISOString(),
         status: 'complete' as const,
         index: msg.index,
         message_by: msg.message_by,
+        filenames: msg.filenames, // Include filenames from API
       };
     });
 
@@ -408,9 +520,6 @@ export async function getConversationMessages(
 
 /**
  * Delete a conversation by ID
- * 
- * @param conversationId - ID of conversation to delete
- * @returns DeleteConversationResponse with success status
  */
 export async function deleteConversation(conversationId: string): Promise<DeleteConversationResponse> {
   try {
