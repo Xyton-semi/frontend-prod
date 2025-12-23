@@ -89,7 +89,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
   });
 
   return (
-    <div className="space-y-1 px-2">
+    <div className="space-y-1 px-2 font-mono">
       {sortedConversations.map((conversation) => {
         const isActive = conversation.id === currentConversationId;
         
@@ -98,7 +98,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
             key={conversation.id}
             onClick={() => onSelectConversation(conversation.id)}
             className={`
-              w-full text-left px-3 py-2.5 rounded-lg transition-all
+              w-full text-left px-3 py-2.5 rounded-lg transition-all font-mono
               ${isActive 
                 ? 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800' 
                 : 'hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent'
@@ -116,7 +116,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
                     } 
                   />
                   <h4 className={`
-                    text-sm font-medium truncate
+                    text-sm font-normal truncate
                     ${isActive 
                       ? 'text-red-900 dark:text-red-100' 
                       : 'text-gray-900 dark:text-gray-100'
@@ -126,7 +126,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
                   </h4>
                 </div>
                 
-                <div className="flex items-center gap-3 text-xs">
+                <div className="flex items-center gap-3 text-xs font-mono">
                   <span className="text-gray-500 dark:text-gray-400">
                     {conversation.total_messages} {conversation.total_messages === 1 ? 'message' : 'messages'}
                   </span>

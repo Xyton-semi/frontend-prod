@@ -33,6 +33,7 @@ const AppDashboard = () => {
   const [isResizing, setIsResizing] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [includeTablesInContext, setIncludeTablesInContext] = useState(false);
+  const [messageSearchQuery, setMessageSearchQuery] = useState('');
   
   // Data state - using generic DataRow interface
   const [pinBoundaryData, setPinBoundaryData] = useState<DataRow[]>([]);
@@ -150,6 +151,30 @@ const AppDashboard = () => {
     stopResponse,
     clearError,
   } = useConversation();
+
+  // Filter messages based on search query
+  const filteredMessages = React.useMemo(() => {
+    if (!messageSearchQuery.trim()) {
+      return messages;
+    }
+
+    const query = messageSearchQuery.toLowerCase();
+    return messages.filter((message) => {
+      // Search in message content
+      if (message.content.toLowerCase().includes(query)) {
+        return true;
+      }
+      
+      // Search in filenames if present
+      if (message.filenames && message.filenames.some(
+        filename => filename.toLowerCase().includes(query)
+      )) {
+        return true;
+      }
+      
+      return false;
+    });
+  }, [messages, messageSearchQuery]);
 
   /**
    * Handle creating a new conversation
@@ -446,8 +471,86 @@ const AppDashboard = () => {
       <div className="flex-1 flex flex-col bg-gray-950 min-w-0">
         {/* Chat Section */}
         <div className="flex-1 flex flex-col min-h-0 bg-gray-950 relative">
+          {/* Chat Header - Only show when there are messages */}
+          {messages.length > 0 && (
+            <div className="flex-shrink-0 px-6 py-3 border-b border-gray-800 bg-gray-900 flex items-center justify-between gap-4">
+              {/* Conversation Name - Left */}
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg font-semibold text-gray-200 truncate">
+                  {conversations.find(c => c.id === currentConversationId)?.name || 'New Conversation'}
+                </h2>
+              </div>
+              
+              {/* Search Bar - Right */}
+              <div className="relative w-64 flex-shrink-0">
+                <input
+                  type="text"
+                  placeholder="Search messages..."
+                  value={messageSearchQuery}
+                  onChange={(e) => setMessageSearchQuery(e.target.value)}
+                  className="w-full px-3 py-1.5 pl-9 pr-8 bg-gray-800 border border-gray-700 rounded text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-red-600 transition-colors"
+                />
+                <svg
+                  className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+                {messageSearchQuery && (
+                  <button
+                    onClick={() => setMessageSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                    title="Clear search"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+          
           {/* Chat Messages */}
-          <ChatMessages messages={messages} isLoading={isSending} />
+          {messageSearchQuery.trim() && filteredMessages.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center px-4">
+              <div className="text-center max-w-md">
+                <div className="mb-4">
+                  <svg
+                    className="w-16 h-16 mx-auto text-gray-600"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={1.5}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-300 mb-2">
+                  No messages found
+                </h3>
+                <p className="text-sm text-gray-500">
+                  No messages match your search for "{messageSearchQuery}"
+                </p>
+              </div>
+            </div>
+          ) : (
+            <ChatMessages 
+              messages={filteredMessages} 
+              isLoading={isSending}
+            />
+          )}
           
           {/* Floating Stop Button - Appears while generating */}
           {isSending && (
@@ -483,7 +586,13 @@ const AppDashboard = () => {
             disabled={false}
             isLoading={isSending}
             includeTablesInContext={includeTablesInContext}
-            onToggleTableContext={() => setIncludeTablesInContext(!includeTablesInContext)}
+            onToggleTableContext={() => {
+              setIncludeTablesInContext(!includeTablesInContext);
+              // Open the right sidebar when enabling table context
+              if (!includeTablesInContext) {
+                setRightSidebarOpen(true);
+              }
+            }}
           />
         </div>
       </div>
@@ -623,6 +732,51 @@ const AppDashboard = () => {
                   </span>
                 </div>
               )}
+            </div>
+
+            {/* Functions Help Note */}
+            <div className="flex-shrink-0 border-b border-gray-800 bg-gray-900/50 px-4 py-2.5">
+              <details className="group">
+                <summary className="cursor-pointer text-xs font-mono text-gray-400 hover:text-gray-300 transition-colors flex items-center gap-2">
+                  <svg 
+                    className="w-3.5 h-3.5 text-red-500 transition-transform group-open:rotate-90" 
+                    fill="none" 
+                    stroke="currentColor" 
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                  <span className="uppercase tracking-wider">Available Functions</span>
+                </summary>
+                <div className="mt-2 pl-5 text-xs font-mono text-gray-500 space-y-1.5">
+                  <div className="flex items-start gap-2">
+                    <span className="text-red-400 font-semibold min-w-[60px]">SUM()</span>
+                    <span>Add numbers: =SUM(A1:A10)</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-red-400 font-semibold min-w-[60px]">AVERAGE()</span>
+                    <span>Calculate average</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-red-400 font-semibold min-w-[60px]">MIN()</span>
+                    <span className="text-gray-500">/ </span>
+                    <span className="text-red-400 font-semibold">MAX()</span>
+                    <span>Find min/max values</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-red-400 font-semibold min-w-[60px]">COUNT()</span>
+                    <span>Count cells with numbers</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-red-400 font-semibold min-w-[60px]">IF()</span>
+                    <span>Conditional: =IF(A1&gt;5,"Yes","No")</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="text-gray-400 font-semibold min-w-[60px]">+, -, *, /</span>
+                    <span>Basic math: =A1+B1*C1</span>
+                  </div>
+                </div>
+              </details>
             </div>
 
             {/* Table Content */}

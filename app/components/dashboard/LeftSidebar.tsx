@@ -36,6 +36,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
   const [userName, setUserName] = useState<string>('User');
   const [userEmail, setUserEmail] = useState<string>('');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     // Get user info from sessionStorage
@@ -91,21 +92,49 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
       <div className="px-3 py-4 flex-shrink-0">
         <button
           onClick={onNewConversation}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-900 hover:bg-red-700 text-white text-sm font-medium rounded-sm transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-900 hover:bg-red-700 text-white text-sm font-mono rounded-sm transition-colors"
         >
           <PlusSquare size={18} />
           <span>New Design</span>
         </button>
       </div>
 
+      {/* Search Input */}
+      <div className="px-3 pb-3 flex-shrink-0">
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search conversations..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full px-3 py-2 pl-9 bg-gray-800 border border-gray-700 rounded text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-red-600 transition-colors font-mono"
+          />
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+        </div>
+      </div>
+
       {/* Conversations Section */}
       <div className="flex-shrink-0 px-4 pb-3">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between font-mono">
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
             Conversations
           </h3>
           <span className="text-xs text-gray-600">
-            {conversations.length}
+            {conversations.filter(conv => 
+              conv.name.toLowerCase().includes(searchQuery.toLowerCase())
+            ).length}
           </span>
         </div>
       </div>
@@ -113,7 +142,9 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
       {/* Conversation List */}
       <div className="flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700">
         <ConversationList
-          conversations={conversations}
+          conversations={conversations.filter(conv => 
+            conv.name.toLowerCase().includes(searchQuery.toLowerCase())
+          )}
           currentConversationId={currentConversationId}
           onSelectConversation={onSelectConversation || (() => {})}
           isLoading={isLoadingConversations}
