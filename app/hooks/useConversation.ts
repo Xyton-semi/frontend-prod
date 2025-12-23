@@ -49,7 +49,7 @@ export function useConversation(): UseConversationResult {
   const streamingControllers = useRef<Map<string, () => void>>(new Map());
 
   /**
-   * Load all conversations for the user
+   * Load all conversations for the user and sort by created_at (newest first)
    */
   const loadConversations = useCallback(async () => {
     const accessToken = typeof window !== 'undefined' ? sessionStorage.getItem('accessToken') : null;
@@ -66,7 +66,15 @@ export function useConversation(): UseConversationResult {
 
     try {
       const data = await getAllConversations();
-      setConversations(data);
+      
+      // Sort conversations by created_at date (newest first)
+      const sortedData = [...data].sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        return dateB - dateA; // Descending order (newest first)
+      });
+      
+      setConversations(sortedData);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load conversations';
       setError(message);
@@ -139,8 +147,8 @@ export function useConversation(): UseConversationResult {
         content: originalMessage,
         timestamp: timestamp || new Date().toISOString(),
         status: 'complete',
-        attachments: attachments, // Store attachments
-        filenames: attachments?.map(a => a.filename), // Store filenames
+        attachments: attachments,
+        filenames: attachments?.map(a => a.filename),
       };
 
       storeMessageLocally(conversation_id, userMessage);
@@ -209,8 +217,8 @@ export function useConversation(): UseConversationResult {
         content: originalMessage,
         timestamp,
         status: 'complete',
-        attachments: attachments, // Store attachments
-        filenames: attachments?.map(a => a.filename), // Store filenames
+        attachments: attachments,
+        filenames: attachments?.map(a => a.filename),
       };
 
       storeMessageLocally(currentConversationId, userMessage);
@@ -235,7 +243,7 @@ export function useConversation(): UseConversationResult {
       const message = err instanceof Error ? err.message : 'Failed to send message';
       setError(message);
       console.error('Error sending message:', err);
-      setIsSending(false); // Only set false on error
+      setIsSending(false);
     }
   }, [currentConversationId]);
 
@@ -339,7 +347,7 @@ export function useConversation(): UseConversationResult {
             return msg;
           });
         });
-        setIsSending(false); // User stopped, set to false
+        setIsSending(false);
       } else {
         console.error('Error polling for response:', err);
         
@@ -355,7 +363,7 @@ export function useConversation(): UseConversationResult {
             return msg;
           });
         });
-        setIsSending(false); // Error occurred, set to false
+        setIsSending(false);
       }
     } finally {
       pollingRef.current.delete(pollKey);
@@ -423,7 +431,7 @@ export function useConversation(): UseConversationResult {
         console.log('✨ Streaming finished for:', messageId);
         updateMessage(fullText, true);
         streamingControllers.current.delete(messageId);
-        setIsSending(false); // Set false when streaming completes
+        setIsSending(false);
       }
     };
 

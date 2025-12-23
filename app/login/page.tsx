@@ -1,25 +1,28 @@
 "use client"
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import LoginForm from './LoginForm';
 import RegisterForm from '../register/RegisterForm';
-import Logo from '@/components/ui/Logo';
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
 export default function LoginPage() {
   const [activeTab, setActiveTab] = useState<'login' | 'register'>('login');
 
+  // Force dark mode
+  useEffect(() => {
+    document.documentElement.classList.add('dark');
+  }, []);
+
   return (
     <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors">
-      {/* Header */}
-      {/* <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-3 flex justify-between items-center">
-        <Logo />
-        <ThemeToggle />
-      </div> */}
-
       {/* Main Content */}
-      <div className="py-8 px-4">
+      <div className="py-12 px-4">
         <div className="w-full max-w-md mx-auto">
+          {/* Centered Large XYTON Logo */}
+          <div className="text-center mb-8">
+            <div className="text-red-800 font-mono font-bold text-5xl tracking-widest">
+              XYTON
+            </div>
+          </div>
           {/* Tab Navigation */}
           <div className="bg-white text-white dark:bg-gray-800 rounded-t-lg border-b border-gray-200 dark:border-gray-700 flex">
             <button

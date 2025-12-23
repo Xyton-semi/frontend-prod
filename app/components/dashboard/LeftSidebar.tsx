@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PanelLeftClose, PlusSquare, MoreVertical, ChevronLeft } from 'lucide-react';
+import { PanelLeftClose, PlusSquare, MoreVertical } from 'lucide-react';
 import Logo from '../ui/Logo'
 import Avatar from '../ui/Avatar';
 import ConversationList from './ConversationList';
@@ -20,7 +20,7 @@ interface LeftSidebarProps {
 }
 
 /**
- * LeftSidebar - Brutalist Design with Collapse Button
+ * LeftSidebar - Brutalist Design without internal collapse button
  * Dark theme with red accents, monospace fonts
  */
 const LeftSidebar: React.FC<LeftSidebarProps> = ({ 
@@ -75,27 +75,23 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
   return (
     <div className={`${isOpen ? 'w-64' : 'w-0'} flex-shrink-0 border-r border-gray-800 bg-gray-900 flex flex-col transition-all duration-300 ease-in-out overflow-hidden relative`}>
-      {/* Collapse Button - Visible when sidebar is open */}
-      {isOpen && (
-        <button
-          onClick={() => setIsOpen(false)}
-          className="absolute top-4 right-2 z-50 p-1.5 text-gray-500 hover:text-gray-300 hover:bg-gray-800 rounded transition-colors"
-          title="Collapse sidebar"
-        >
-          <ChevronLeft size={18} />
-        </button>
-      )}
-
-      {/* Header */}
+      {/* Header - With collapse button */}
       <div className="p-4 flex items-center justify-between flex-shrink-0 border-b border-gray-800">
         <div className="text-red-900 font-mono font-bold text-xl tracking-wider">XYTON</div>
+        <button
+          onClick={() => setIsOpen(false)}
+          className="text-gray-500 hover:text-gray-300 hover:bg-gray-800 p-1.5 rounded transition-colors"
+          title="Hide sidebar"
+        >
+          <PanelLeftClose size={18} />
+        </button>
       </div>
 
       {/* New Conversation Button */}
       <div className="px-3 py-4 flex-shrink-0">
         <button
           onClick={onNewConversation}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-900 hover:bg-red-700 text-white font-mono text-xs uppercase tracking-wider rounded-sm transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-900 hover:bg-red-700 text-white text-sm font-medium rounded-sm transition-colors"
         >
           <PlusSquare size={18} />
           <span>New Design</span>
@@ -105,10 +101,10 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
       {/* Conversations Section */}
       <div className="flex-shrink-0 px-4 pb-3">
         <div className="flex items-center justify-between">
-          <h3 className="font-mono text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
             Conversations
           </h3>
-          <span className="font-mono text-[10px] text-gray-600">
+          <span className="text-xs text-gray-600">
             {conversations.length}
           </span>
         </div>
@@ -129,8 +125,8 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
         <div className="flex items-center space-x-3 flex-1 min-w-0 cursor-pointer" onClick={handleProfileClick}>
           <Avatar src={undefined} alt={getDisplayName()} fallback={getInitials(getDisplayName())} />
           <div className="overflow-hidden flex-1 min-w-0">
-            <p className="font-mono text-sm font-medium text-gray-100 leading-none truncate">{getDisplayName()}</p>
-            <p className="font-mono text-[10px] text-gray-500 leading-none mt-1 truncate">{userEmail || 'Not logged in'}</p>
+            <p className="text-sm font-medium text-gray-100 leading-none truncate">{getDisplayName()}</p>
+            <p className="text-xs text-gray-500 leading-none mt-1 truncate">{userEmail || 'Not logged in'}</p>
           </div>
         </div>
 
@@ -147,7 +143,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
             <div className="absolute right-0 bottom-full mb-2 w-40 bg-gray-800 border border-gray-700 shadow-lg z-[9999]">
               <button 
                 onClick={handleSignOut} 
-                className="w-full text-left px-4 py-2 font-mono text-xs text-gray-200 hover:bg-gray-700 transition-colors uppercase tracking-wider"
+                className="w-full text-left px-4 py-2 text-xs text-gray-200 hover:bg-gray-700 transition-colors"
               >
                 Sign out
               </button>

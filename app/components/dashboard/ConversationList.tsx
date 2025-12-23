@@ -81,9 +81,16 @@ const ConversationList: React.FC<ConversationListProps> = ({
     );
   }
 
+  // Sort conversations by created_at (newest first)
+  const sortedConversations = [...conversations].sort((a, b) => {
+    const dateA = new Date(a.created_at).getTime();
+    const dateB = new Date(b.created_at).getTime();
+    return dateB - dateA; // Descending order (newest first)
+  });
+
   return (
     <div className="space-y-1 px-2">
-      {conversations.map((conversation) => {
+      {sortedConversations.map((conversation) => {
         const isActive = conversation.id === currentConversationId;
         
         return (

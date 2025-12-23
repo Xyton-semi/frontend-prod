@@ -27,8 +27,10 @@ interface DataRow {
 const AppDashboard = () => {
   const router = useRouter();
   const [activeDataTab, setActiveDataTab] = useState<DataTabType>('pin-boundary');
-  const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(false); // Default to collapsed
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
+  const [rightSidebarWidth, setRightSidebarWidth] = useState(500); // Default width in pixels
+  const [isResizing, setIsResizing] = useState(false);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [includeTablesInContext, setIncludeTablesInContext] = useState(false);
   
@@ -42,9 +44,12 @@ const AppDashboard = () => {
   const [tablesModified, setTablesModified] = useState(false);
   const [lastModifiedTime, setLastModifiedTime] = useState<string>('');
 
-  // Check authentication on mount
+  // Check authentication on mount and force dark mode
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      // Force dark mode
+      document.documentElement.classList.add('dark');
+      
       const accessToken = sessionStorage.getItem('accessToken');
       const userEmail = sessionStorage.getItem('userEmail');
       
@@ -270,6 +275,15 @@ const AppDashboard = () => {
   useEffect(() => {
     if (isCheckingAuth) return;
     
+    // Check for conversation ID to open (from welcome page)
+    const openConversationId = sessionStorage.getItem('openConversationId');
+    if (openConversationId) {
+      sessionStorage.removeItem('openConversationId');
+      selectConversation(openConversationId);
+      return;
+    }
+    
+    // Check for initial message (from welcome page)
     const initialMessage = sessionStorage.getItem('initialMessage');
     if (initialMessage) {
       sessionStorage.removeItem('initialMessage');
@@ -277,7 +291,7 @@ const AppDashboard = () => {
         console.error('Failed to create initial conversation:', err);
       });
     }
-  }, [createNewConversation, isCheckingAuth]);
+  }, [createNewConversation, selectConversation, isCheckingAuth]);
 
   /**
    * Keyboard shortcut: Ctrl/Cmd + D to toggle right sidebar
@@ -293,6 +307,43 @@ const AppDashboard = () => {
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
+
+  /**
+   * Handle right sidebar resize
+   */
+  const handleResizeStart = () => {
+    setIsResizing(true);
+  };
+
+  useEffect(() => {
+    if (!isResizing) return;
+
+    // Add cursor style to body during resize
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const newWidth = window.innerWidth - e.clientX;
+      // Constrain width between 300px and 800px
+      setRightSidebarWidth(Math.max(300, Math.min(800, newWidth)));
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizing]);
 
   /**
    * Auto-clear error after 5 seconds
@@ -317,25 +368,35 @@ const AppDashboard = () => {
 
   return (
     <div className="flex h-screen w-full bg-gray-950 overflow-hidden">
-      {/* Top-left XYTON logo - appears when left sidebar is collapsed */}
-      {!leftSidebarOpen && (
-        <div className="absolute top-4 left-4 z-50 animate-in fade-in slide-in-from-left-4 duration-300">
-          <div className="flex items-center gap-3 px-4 py-2 bg-gray-900 border border-gray-800 rounded-lg shadow-lg">
+      {/* XYTON logo - top-left when open, top-center when collapsed */}
+      {leftSidebarOpen ? (
+        <div className="absolute top-4 left-4 z-50">
+          <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-gray-900 border border-gray-800 shadow-lg">
             <div className="text-red-800 font-mono font-bold text-xl tracking-wider">
               XYTON
             </div>
-            <div className="w-px h-6 bg-gray-700"></div>
-            <button
-              onClick={() => setLeftSidebarOpen(true)}
-              className="text-gray-500 hover:text-gray-300 transition-colors"
-              title="Show conversations"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
           </div>
         </div>
+      ) : (
+        <>
+          {/* Centered XYTON logo */}
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
+            <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-gray-900 border border-gray-800 shadow-lg">
+              <div className="text-red-800 font-mono font-bold text-xl tracking-wider">
+                XYTON
+              </div>
+            </div>
+          </div>
+          
+          {/* Expand sidebar button on left edge */}
+          <button
+            onClick={() => setLeftSidebarOpen(true)}
+            className="absolute top-1/2 left-0 transform -translate-y-1/2 z-50 bg-gray-900 border border-gray-800 border-l-0 rounded-r-lg p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-all shadow-lg"
+            title="Show conversations"
+          >
+            <ChevronRight size={20} />
+          </button>
+        </>
       )}
 
       {/* Top-right theme toggle */}
@@ -428,9 +489,21 @@ const AppDashboard = () => {
       </div>
 
       {/* Right Sidebar - Data Tables */}
-      <div className={`${rightSidebarOpen ? 'w-[500px]' : 'w-0'} flex-shrink-0 border-l border-gray-800 bg-gray-900 flex flex-col transition-all duration-300 ease-in-out overflow-hidden`}>
+      <div 
+        className="flex-shrink-0 border-l border-gray-800 bg-gray-900 flex flex-col overflow-hidden relative transition-all duration-300 ease-in-out"
+        style={{ width: rightSidebarOpen ? `${rightSidebarWidth}px` : '0px' }}
+      >
         {rightSidebarOpen && (
           <>
+            {/* Resize Handle */}
+            <div
+              className={`absolute left-0 top-0 bottom-0 w-1 hover:w-1.5 bg-transparent hover:bg-red-600 cursor-col-resize z-50 transition-all ${
+                isResizing ? 'w-1.5 bg-red-600' : ''
+              }`}
+              onMouseDown={handleResizeStart}
+              title="Drag to resize"
+            />
+            
             {/* Right Sidebar Header */}
             <div className="flex-shrink-0 border-b border-gray-800 bg-gray-900 px-4 py-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
