@@ -52,17 +52,17 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({ leftSidebarOpen, setLeftSidebar
     return (
         <div className="flex-1 flex flex-col min-w-0 relative h-full">
             {/* Canvas Header */}
-            <div className="h-14 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center px-4 justify-between shrink-0 z-10 transition-colors">
+            <div className="h-14 border-b border-gray-700 bg-gray-800 flex items-center px-4 justify-between shrink-0 z-10 transition-colors">
                 <div className="flex items-center space-x-4 flex-1">
                     {!leftSidebarOpen && (
-                        <button onClick={() => setLeftSidebarOpen(true)} className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
+                        <button onClick={() => setLeftSidebarOpen(true)} className="text-gray-400 hover:text-gray-300">
                             <PanelLeftClose size={20} className="rotate-180" />
                         </button>
                     )}
                     <div className="flex items-center space-x-2 overflow-hidden flex-1">
-                        <FileText size={18} className="text-gray-400 dark:text-gray-500 flex-shrink-0" />
-                        <span className="font-medium text-gray-700 dark:text-gray-200 truncate">Curvature-Compensated Bandgap (Brokaw-style)</span>
-                        <span className="flex flex-shrink-0 items-center text-xs text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-950 px-2 py-0.5 rounded-full font-medium">
+                        <FileText size={18} className="text-gray-500 flex-shrink-0" />
+                        <span className="font-mediumtext-gray-200 truncate">Curvature-Compensated Bandgap (Brokaw-style)</span>
+                        <span className="flex flex-shrink-0 items-center text-xs text-green-400 bg-green-950 px-2 py-0.5 rounded-full font-medium">
                         <CheckCircle2 size={12} className="mr-1" /> Auto-saved
                         </span>
                     </div>
@@ -77,7 +77,7 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({ leftSidebarOpen, setLeftSidebar
                         <PinBoundaryModal isOpen={isPinOpen} onClose={() => setIsPinOpen(false)} csvData={pinCsv as any} />
 
             {/* Canvas Content */}
-            <div className="flex-1 overflow-hidden bg-gray-50 dark:bg-gray-900 relative cursor-grab active:cursor-grabbing transition-colors" style={{
+            <div className="flex-1 overflow-hidden bg-gray-900 relative cursor-grab active:cursor-grabbing transition-colors" style={{
               backgroundImage: 'radial-gradient(#e5e7eb 1px, transparent 1px), radial-gradient(#4b5563 1px, transparent 1px)',
               backgroundSize: '24px 24px',
               backgroundPosition: '0 0, 0 0'

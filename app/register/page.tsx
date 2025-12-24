@@ -13,7 +13,7 @@ export default function RegisterPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900 transition-colors">
+    <div className="min-h-screen bg-black transition-colors">
       {/* Main Content */}
       <div className="py-12 px-4">
         <div className="w-full max-w-md mx-auto">
@@ -24,13 +24,13 @@ export default function RegisterPage() {
             </div>
           </div>
           {/* Tab Navigation */}
-          <div className="bg-white dark:bg-gray-800 rounded-t-lg border-b border-gray-200 dark:border-gray-700 flex">
+          <div className="bg-gray-800 rounded-t-lg border-b border-gray-700 flex">
             <button
               onClick={() => setActiveTab('login')}
               className={`flex-1 py-2.5 px-4 text-sm font-medium transition-colors ${
                 activeTab === 'login'
-                  ? 'text-red-600 border-b-2 border-red-600 bg-red-50 dark:bg-red-950'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  ? 'text-red-600 border-b-2 border-red-600 bg-red-950'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
               }`}
             >
               Sign In
@@ -39,8 +39,8 @@ export default function RegisterPage() {
               onClick={() => setActiveTab('register')}
               className={`flex-1 py-2.5 px-4 text-sm font-medium transition-colors ${
                 activeTab === 'register'
-                  ? 'text-red-600 border-b-2 border-red-600 bg-red-50 dark:bg-red-950'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+                  ? 'text-red-600 border-b-2 border-red-600 bg-red-950'
+                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-700'
               }`}
             >
               Create Account
@@ -48,7 +48,7 @@ export default function RegisterPage() {
           </div>
 
           {/* Tab Content */}
-          <div className="bg-white dark:bg-gray-800 rounded-b-lg shadow-lg border border-gray-200 dark:border-gray-700 border-t-0">
+          <div className="bg-gray-800 rounded-b-lg shadow-lg border border-gray-700 border-t-0">
             {activeTab === 'login' ? (
               <LoginForm onSwitchToRegister={() => setActiveTab('register')} />
             ) : (

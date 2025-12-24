@@ -354,13 +354,13 @@ const EditablePinBoundaryTable: React.FC<EditablePinBoundaryTableProps> = ({
   const getRowTypeColor = (rowType: string) => {
     switch (rowType?.toLowerCase()) {
       case 'pin':
-        return 'bg-blue-900/30 dark:bg-blue-900/20';
+        return 'bg-blue-900/20';
       case 'boundary':
-        return 'bg-green-900/30 dark:bg-green-900/20';
+        return 'bg-green-900/20';
       case 'decision':
-        return 'bg-yellow-900/30 dark:bg-yellow-900/20';
+        return 'bg-yellow-900/20';
       default:
-        return 'bg-gray-800 dark:bg-gray-900';
+        return 'bg-gray-900';
     }
   };
 

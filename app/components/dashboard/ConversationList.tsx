@@ -57,7 +57,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="h-16 bg-gray-100 dark:bg-gray-700 rounded-lg animate-pulse"
+            className="h-16 bg-gray-700 rounded-lg animate-pulse"
           />
         ))}
       </div>
@@ -69,12 +69,12 @@ const ConversationList: React.FC<ConversationListProps> = ({
       <div className="px-4 py-8 text-center">
         <MessageSquare 
           size={32} 
-          className="mx-auto mb-2 text-gray-300 dark:text-gray-600" 
+          className="mx-auto mb-2 text-gray-600" 
         />
-        <p className="text-sm text-gray-500 dark:text-gray-400">
+        <p className="text-sm text-gray-400">
           No conversations yet
         </p>
-        <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+        <p className="text-xs text-gray-500 mt-1">
           Start a new chat to begin
         </p>
       </div>
@@ -100,8 +100,8 @@ const ConversationList: React.FC<ConversationListProps> = ({
             className={`
               w-full text-left px-3 py-2.5 rounded-lg transition-all font-mono
               ${isActive 
-                ? 'bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800' 
-                : 'hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent'
+                ? 'bg-red-950 border border-red-800' 
+                : 'hover:bg-gray-700 border border-transparent'
               }
             `}
           >
@@ -111,15 +111,15 @@ const ConversationList: React.FC<ConversationListProps> = ({
                   <MessageSquare 
                     size={14} 
                     className={isActive 
-                      ? 'text-red-600 dark:text-red-400' 
-                      : 'text-gray-400 dark:text-gray-500'
+                      ? 'text-red-400' 
+                      : 'text-gray-500'
                     } 
                   />
                   <h4 className={`
                     text-sm font-normal truncate
                     ${isActive 
-                      ? 'text-red-900 dark:text-red-100' 
-                      : 'text-gray-900 dark:text-gray-100'
+                      ? 'text-red-100' 
+                      : 'text-gray-100'
                     }
                   `}>
                     {truncateName(conversation.name)}
@@ -127,10 +127,10 @@ const ConversationList: React.FC<ConversationListProps> = ({
                 </div>
                 
                 <div className="flex items-center gap-3 text-xs font-mono">
-                  <span className="text-gray-500 dark:text-gray-400">
+                  <span className="text-gray-400">
                     {conversation.total_messages} {conversation.total_messages === 1 ? 'message' : 'messages'}
                   </span>
-                  <span className="flex items-center gap-1 text-gray-400 dark:text-gray-500">
+                  <span className="flex items-center gap-1 text-gray-500">
                     <Clock size={10} />
                     {formatDate(conversation.created_at)}
                   </span>

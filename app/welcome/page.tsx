@@ -136,18 +136,17 @@ export default function WelcomePage() {
   };
 
   return (
-    <div className="h-screen bg-gradient-to-br from-white via-gray-50 to-red-50 dark:from-black dark:via-black dark:to-gray-900 flex flex-col transition-colors overflow-hidden">
+    <div className="h-screen bg-black flex flex-col transition-colors overflow-hidden">
       {/* Header */}
       <div className="w-full px-6 py-4 flex justify-between items-center flex-shrink-0">
         <Logo className="text-2xl" />
         <div className="flex items-center gap-4">
           <button
             onClick={handleLogin}
-            className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 font-medium transition-colors"
+            className="text-sm text-gray-400 hover:text-gray-200 font-medium transition-colors"
           >
             Sign In
           </button>
-          {/* <ThemeToggle /> */}
         </div>
       </div>
 
@@ -156,10 +155,10 @@ export default function WelcomePage() {
         <div className="max-w-3xl w-full mx-auto text-center space-y-8 pb-20">
           {/* Welcome Message */}
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
-            <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-5xl sm:text-6xl font-bold text-white">
               Hello {userName}
             </h1>
-            <p className="text-xl sm:text-2xl text-red-600 dark:text-red-400 font-medium">
+            <p className="text-xl sm:text-2xl text-red-400 font-medium">
               Ready to design your next circuit?
             </p>
           </div>
@@ -167,15 +166,15 @@ export default function WelcomePage() {
           {/* Recent Conversations Section */}
           {!isLoadingConversations && recentConversations.length > 0 && (
             <div className="animate-in fade-in slide-in-from-bottom-5 duration-700 delay-100">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 transition-all hover:shadow-2xl">
+              <div className="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 transition-all hover:shadow-2xl">
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-white flex items-center gap-2">
                     <MessageSquare size={20} className="text-red-600" />
                     Recent Conversations
                   </h3>
                   <button
                     onClick={() => router.push('/')}
-                    className="text-sm text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 font-medium transition-colors flex items-center gap-1"
+                    className="text-sm text-red-400 hover:text-red-300 font-medium transition-colors flex items-center gap-1"
                   >
                     View All
                     <ChevronRight size={16} />
@@ -187,17 +186,17 @@ export default function WelcomePage() {
                     <button
                       key={conversation.id}
                       onClick={() => handleConversationClick(conversation.id)}
-                      className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent hover:border-red-200 dark:hover:border-red-800 transition-all group"
+                      className="w-full text-left px-4 py-3 rounded-lg hover:bg-gray-700 border border-transparent hover:border-red-800 transition-all group"
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <MessageSquare size={14} className="text-gray-400 dark:text-gray-500 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors" />
-                            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                            <MessageSquare size={14} className="text-gray-500 group-hover:text-red-400 transition-colors" />
+                            <h4 className="text-sm font-medium text-gray-100 truncate">
                               {truncateName(conversation.name)}
                             </h4>
                           </div>
-                          <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center gap-3 text-xs text-gray-400">
                             <span>
                               {conversation.total_messages} {conversation.total_messages === 1 ? 'message' : 'messages'}
                             </span>
@@ -207,7 +206,7 @@ export default function WelcomePage() {
                             </span>
                           </div>
                         </div>
-                        <ChevronRight size={18} className="text-gray-400 group-hover:text-red-600 dark:group-hover:text-red-400 transition-colors flex-shrink-0 mt-1" />
+                        <ChevronRight size={18} className="text-gray-400 group-hover:text-red-400 transition-colors flex-shrink-0 mt-1" />
                       </div>
                     </button>
                   ))}
@@ -218,8 +217,8 @@ export default function WelcomePage() {
 
           {/* Chat Input Card */}
           <div className="mt-12 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-200">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl border border-gray-200 dark:border-gray-700 p-6 space-y-4 transition-all hover:shadow-2xl">
-              <p className="text-gray-600 dark:text-gray-400 text-sm text-left">
+            <div className="bg-gray-800 rounded-2xl shadow-xl border border-gray-700 p-6 space-y-4 transition-all hover:shadow-2xl">
+              <p className="text-gray-400 text-sm text-left">
                 Upload a sketch, describe your circuit, or paste a netlist
               </p>
 
@@ -234,12 +233,12 @@ export default function WelcomePage() {
                   onCompositionEnd={() => setIsComposing(false)}
                   placeholder="Describe your circuit design or paste a netlist..."
                   rows={1}
-                  className="w-full px-4 py-3 pr-12 text-sm border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none overflow-hidden max-h-[120px] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-colors"
+                  className="w-full px-4 py-3 pr-12 text-sm border border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none overflow-hidden max-h-[120px] bg-gray-700 text-gray-100 placeholder-gray-500 transition-colors"
                 />
                 <button
                   type="submit"
                   disabled={!chatInput.trim()}
-                  className="absolute right-3 bottom-3 p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+                  className="absolute right-3 bottom-3 p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
                   title="Send message (Enter)"
                 >
                   <ArrowUp size={18} />
@@ -248,11 +247,11 @@ export default function WelcomePage() {
 
               {/* Action Buttons */}
               <div className="flex items-center justify-center gap-4 pt-2">
-                <button className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                <button className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded-lg transition-colors">
                   <FileCode size={16} />
                   <span>Attach Netlist</span>
                 </button>
-                <button className="flex items-center gap-2 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors">
+                <button className="flex items-center gap-2 px-4 py-2 text-sm text-gray-400 hover:text-gray-200 hover:bg-gray-700 rounded-lg transition-colors">
                   <ImageIcon size={16} />
                   <span>Attach Image</span>
                 </button>
@@ -263,31 +262,31 @@ export default function WelcomePage() {
           {/* Features */}
           <div className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
             <div className="text-center space-y-2">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-400 mb-2">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-950 text-red-400 mb-2">
                 <MessageSquarePlus size={24} />
               </div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">AI-Powered Design</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <h3 className="font-semibold text-white">AI-Powered Design</h3>
+              <p className="text-sm text-gray-400">
                 Conversational circuit design with intelligent assistance
               </p>
             </div>
 
             <div className="text-center space-y-2">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-400 mb-2">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-950 text-red-400 mb-2">
                 <FileCode size={24} />
               </div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">Real-time Simulation</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <h3 className="font-semibold text-white">Real-time Simulation</h3>
+              <p className="text-sm text-gray-400">
                 Test and optimize your designs instantly
               </p>
             </div>
 
             <div className="text-center space-y-2">
-              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-100 dark:bg-red-950 text-red-600 dark:text-red-400 mb-2">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-red-950 text-red-400 mb-2">
                 <ImageIcon size={24} />
               </div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">Visual Design</h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <h3 className="font-semibold text-white">Visual Design</h3>
+              <p className="text-sm text-gray-400">
                 From sketch to schematic seamlessly
               </p>
             </div>

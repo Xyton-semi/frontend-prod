@@ -15,7 +15,7 @@ const DataTabsContainer: React.FC<DataTabsContainerProps> = ({ onOpenRequirement
       <button
         onClick={() => onOpenRequirements && onOpenRequirements()}
         className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium transition-colors duration-150 border-b-2 whitespace-nowrap ${
-            'text-gray-600 dark:text-gray-400 border-b-transparent hover:text-gray-900 dark:hover:text-gray-200'
+            'text-gray-400 border-b-transparent hover:text-gray-200'
         }`}
         title="Requirements and Feasibility (USCM)"
       >
@@ -27,7 +27,7 @@ const DataTabsContainer: React.FC<DataTabsContainerProps> = ({ onOpenRequirement
       <button
         onClick={() => onOpenPinBoundary && onOpenPinBoundary()}
         className={`flex items-center space-x-2 px-4 py-2 text-sm font-medium transition-colors duration-150 border-b-2 whitespace-nowrap ${
-            'text-gray-600 dark:text-gray-400 border-b-transparent hover:text-gray-900 dark:hover:text-gray-200'
+            'text-gray-400 border-b-transparent hover:text-gray-200'
         }`}
         title="Pin and Boundary Definition"
       >

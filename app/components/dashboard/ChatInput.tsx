@@ -108,11 +108,11 @@ const ChatInput: React.FC<ChatInputProps> = ({
   };
 
   return (
-    <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 flex-shrink-0 transition-colors">
+    <div className="p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0 transition-colors">
       <form onSubmit={handleSubmit} className="space-y-2">
         {/* Error message */}
         {error && (
-          <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded-lg text-sm text-red-600 dark:text-red-400">
+          <div className="flex items-center gap-2 px-3 py-2 bg-red-950 border border-red-800 rounded-lg text-sm text-red-400">
             <AlertCircle size={16} className="flex-shrink-0" />
             <span>{error}</span>
           </div>
@@ -130,12 +130,12 @@ const ChatInput: React.FC<ChatInputProps> = ({
             placeholder={placeholder}
             disabled={isLoading}
             rows={1}
-            className="w-full px-4 py-2.5 pr-12 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none overflow-hidden max-h-[100px] bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full px-4 py-2.5 pr-12 text-sm border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none overflow-hidden max-h-[100px] bg-gray-700 text-gray-100 placeholder-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="absolute right-2 bottom-2.5 p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+            className="absolute right-2 bottom-2.5 p-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
             title="Send message (Enter)"
           >
             {isLoading ? (
@@ -152,7 +152,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
             type="button"
             onClick={handleAttachNetlist}
             disabled={isLoading}
-            className="flex items-center px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50"
+            className="flex items-center px-2.5 py-1.5 text-xs text-gray-400 hover:text-gray-300 hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50"
           >
             <Code size={14} className="mr-1.5" />
             Netlist
@@ -161,7 +161,7 @@ const ChatInput: React.FC<ChatInputProps> = ({
             type="button"
             onClick={handleAttachImage}
             disabled={isLoading}
-            className="flex items-center px-2.5 py-1.5 text-xs text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50"
+            className="flex items-center px-2.5 py-1.5 text-xs text-gray-400 hover:text-gray-300 hover:bg-gray-700 rounded-md transition-colors disabled:opacity-50"
           >
             <ImageIcon size={14} className="mr-1.5" />
             Image
