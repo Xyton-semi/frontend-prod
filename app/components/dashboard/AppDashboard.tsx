@@ -136,19 +136,25 @@ const AppDashboard = () => {
     }
   }, [customSheets]);
 
-  // Use conversation hook
+  // ============================================================
+  // UPDATED: Use conversation hook with NEW delete/pin functions
+  // ============================================================
   const {
     conversations,
     currentConversationId,
     messages,
     isLoading,
     isSending,
+    isDeleting,              // ← ADDED: Delete loading state
+    isPinning,               // ← ADDED: Pin loading state
     error,
     loadConversations,
     createNewConversation,
     selectConversation,
     sendMessage,
     stopResponse,
+    deleteConversation,      // ← ADDED: Delete function
+    togglePin,               // ← ADDED: Pin/unpin function
     clearError,
   } = useConversation();
 
@@ -393,8 +399,8 @@ const AppDashboard = () => {
 
   return (
     <div className="flex h-screen w-full bg-gray-950 overflow-hidden">
-      {/* XYTON logo - top-left when open, top-center when collapsed */}
-      {leftSidebarOpen ? (
+      {/* XYTON logo - top-left when sidebar is open */}
+      {leftSidebarOpen && (
         <div className="absolute top-4 left-4 z-50">
           <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-gray-900 border border-gray-800 shadow-lg">
             <div className="text-red-800 font-mono font-bold text-xl tracking-wider">
@@ -402,26 +408,6 @@ const AppDashboard = () => {
             </div>
           </div>
         </div>
-      ) : (
-        <>
-          {/* Centered XYTON logo */}
-          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
-            <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-gray-900 border border-gray-800 shadow-lg">
-              <div className="text-red-800 font-mono font-bold text-xl tracking-wider">
-                XYTON
-              </div>
-            </div>
-          </div>
-          
-          {/* Expand sidebar button on left edge */}
-          <button
-            onClick={() => setLeftSidebarOpen(true)}
-            className="absolute top-1/2 left-0 transform -translate-y-1/2 z-50 bg-gray-900 border border-gray-800 border-l-0 rounded-r-lg p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-all shadow-lg"
-            title="Show conversations"
-          >
-            <ChevronRight size={20} />
-          </button>
-        </>
       )}
 
       {/* Top-right theme toggle */}
@@ -456,7 +442,9 @@ const AppDashboard = () => {
         </div>
       )}
       
-      {/* Left Sidebar - Conversations */}
+      {/* ============================================================ */}
+      {/* UPDATED: Left Sidebar with DELETE and PIN props             */}
+      {/* ============================================================ */}
       <LeftSidebar 
         isOpen={leftSidebarOpen} 
         setIsOpen={setLeftSidebarOpen}
@@ -464,11 +452,37 @@ const AppDashboard = () => {
         currentConversationId={currentConversationId}
         onSelectConversation={selectConversation}
         onNewConversation={handleNewConversation}
+        onDeleteConversation={deleteConversation}    // ← ADDED: Delete handler
+        onTogglePin={togglePin}                       // ← ADDED: Pin/unpin handler
         isLoadingConversations={isLoading}
+        isDeleting={isDeleting}                       // ← ADDED: Delete loading state
+        isPinning={isPinning}                         // ← ADDED: Pin loading state
       />
 
       {/* Center - Chat Interface */}
-      <div className="flex-1 flex flex-col bg-gray-950 min-w-0">
+      <div className="flex-1 flex flex-col bg-gray-950 min-w-0 relative">
+        {/* XYTON logo - Centered in chat area when sidebar collapsed */}
+        {!leftSidebarOpen && (
+          <>
+            <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
+              <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-gray-900 border border-gray-800 shadow-lg">
+                <div className="text-red-800 font-mono font-bold text-xl tracking-wider">
+                  XYTON
+                </div>
+              </div>
+            </div>
+            
+            {/* Expand sidebar button on left edge */}
+            <button
+              onClick={() => setLeftSidebarOpen(true)}
+              className="absolute top-1/2 left-0 transform -translate-y-1/2 z-50 bg-gray-900 border border-gray-800 border-l-0 rounded-r-lg p-2 text-gray-500 hover:text-gray-300 hover:bg-gray-800 transition-all shadow-lg"
+              title="Show conversations"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </>
+        )}
+        
         {/* Chat Section */}
         <div className="flex-1 flex flex-col min-h-0 bg-gray-950 relative">
           {/* Chat Header - Only show when there are messages */}

@@ -10,6 +10,7 @@ import {
   storeMessageLocally,
   getConversationMessages,
   deleteConversation,
+  togglePinConversation,
   type Conversation,
   type Message,
 } from '@/utils/conversation-api';
@@ -23,6 +24,7 @@ interface UseConversationResult {
   isLoading: boolean;
   isSending: boolean;
   isDeleting: boolean;
+  isPinning: boolean;
   error: string | null;
 
   // Actions
@@ -32,6 +34,7 @@ interface UseConversationResult {
   sendMessage: (message: string, attachments?: FileAttachment[]) => Promise<void>;
   stopResponse: () => void;
   deleteConversation: (conversationId: string) => Promise<void>;
+  togglePin: (conversationId: string) => Promise<void>;
   clearError: () => void;
 }
 
@@ -42,6 +45,7 @@ export function useConversation(): UseConversationResult {
   const [isLoading, setIsLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isPinning, setIsPinning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const pollingRef = useRef<Set<string>>(new Set());
@@ -50,6 +54,7 @@ export function useConversation(): UseConversationResult {
 
   /**
    * Load all conversations for the user and sort by created_at (newest first)
+   * Pinned conversations will be at the top
    */
   const loadConversations = useCallback(async () => {
     const accessToken = typeof window !== 'undefined' ? sessionStorage.getItem('accessToken') : null;
@@ -67,14 +72,21 @@ export function useConversation(): UseConversationResult {
     try {
       const data = await getAllConversations();
       
-      // Sort conversations by created_at date (newest first)
-      const sortedData = [...data].sort((a, b) => {
+      // Sort within each group (pinned and unpinned) by created_at (newest first)
+      const pinnedConvs = data.filter(c => c.is_pinned).sort((a, b) => {
         const dateA = new Date(a.created_at).getTime();
         const dateB = new Date(b.created_at).getTime();
-        return dateB - dateA; // Descending order (newest first)
+        return dateB - dateA;
       });
       
-      setConversations(sortedData);
+      const unpinnedConvs = data.filter(c => !c.is_pinned).sort((a, b) => {
+        const dateA = new Date(a.created_at).getTime();
+        const dateB = new Date(b.created_at).getTime();
+        return dateB - dateA;
+      });
+      
+      // Pinned conversations first, then unpinned
+      setConversations([...pinnedConvs, ...unpinnedConvs]);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load conversations';
       setError(message);
@@ -92,6 +104,14 @@ export function useConversation(): UseConversationResult {
    * Load messages for a specific conversation
    */
   const loadMessages = useCallback(async (conversationId: string) => {
+    if (!conversationId) {
+      console.warn('No conversation ID provided');
+      setMessages([]);
+      return;
+    }
+
+    setError(null); // Clear any previous errors
+    
     try {
       const apiMessages = await getConversationMessages(conversationId);
       
@@ -103,11 +123,27 @@ export function useConversation(): UseConversationResult {
           localStorage.setItem(key, JSON.stringify(apiMessages));
         }
       } else {
+        // Check if we have local cache
         const localMessages = getLocalMessages(conversationId);
-        setMessages(localMessages);
+        if (localMessages.length > 0) {
+          setMessages(localMessages);
+        } else {
+          // No messages at all - this is a new/empty conversation
+          setMessages([]);
+        }
       }
     } catch (error) {
-      console.error('Error loading messages from API, using local cache:', error);
+      console.error('Error loading messages from API:', error);
+      
+      // Set user-friendly error message
+      const errorMessage = error instanceof Error ? error.message : 'Failed to load messages';
+      
+      // Only show error if it's not a "not found" error
+      if (!errorMessage.toLowerCase().includes('not found')) {
+        setError(errorMessage);
+      }
+      
+      // Try to load from local cache
       const localMessages = getLocalMessages(conversationId);
       setMessages(localMessages);
     }
@@ -251,11 +287,14 @@ export function useConversation(): UseConversationResult {
    * Delete a conversation
    */
   const handleDeleteConversation = useCallback(async (conversationId: string) => {
+    console.log('handleDeleteConversation called with:', conversationId);
     setIsDeleting(true);
     setError(null);
 
     try {
+      console.log('Calling deleteConversation API...');
       const result = await deleteConversation(conversationId);
+      console.log('Delete API result:', result);
       
       if (result.success) {
         // Remove from conversations list
@@ -278,6 +317,56 @@ export function useConversation(): UseConversationResult {
       setIsDeleting(false);
     }
   }, [currentConversationId]);
+
+  /**
+   * Toggle pin status of a conversation
+   */
+  const handleTogglePin = useCallback(async (conversationId: string) => {
+    console.log('handleTogglePin called with:', conversationId);
+    setIsPinning(true);
+    setError(null);
+
+    try {
+      console.log('Calling togglePinConversation API...');
+      const result = await togglePinConversation(conversationId);
+      console.log('Toggle pin API result:', result);
+      
+      if (result.success) {
+        // Update the conversation in the list
+        setConversations(prev => {
+          const updated = prev.map(c => 
+            c.id === conversationId 
+              ? { ...c, is_pinned: result.is_pinned }
+              : c
+          );
+          
+          // Re-sort: pinned first, then unpinned, each sorted by date
+          const pinnedConvs = updated.filter(c => c.is_pinned).sort((a, b) => {
+            const dateA = new Date(a.created_at).getTime();
+            const dateB = new Date(b.created_at).getTime();
+            return dateB - dateA;
+          });
+          
+          const unpinnedConvs = updated.filter(c => !c.is_pinned).sort((a, b) => {
+            const dateA = new Date(a.created_at).getTime();
+            const dateB = new Date(b.created_at).getTime();
+            return dateB - dateA;
+          });
+          
+          return [...pinnedConvs, ...unpinnedConvs];
+        });
+        
+        console.log('Pin status toggled:', result.message);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to toggle pin';
+      setError(message);
+      console.error('Error toggling pin:', err);
+      throw err;
+    } finally {
+      setIsPinning(false);
+    }
+  }, []);
 
   /**
    * Poll for message response with streaming effect
@@ -531,6 +620,7 @@ export function useConversation(): UseConversationResult {
     isLoading,
     isSending,
     isDeleting,
+    isPinning,
     error,
     loadConversations,
     createNewConversation,
@@ -538,6 +628,7 @@ export function useConversation(): UseConversationResult {
     sendMessage,
     stopResponse,
     deleteConversation: handleDeleteConversation,
+    togglePin: handleTogglePin,
     clearError,
   };
 }

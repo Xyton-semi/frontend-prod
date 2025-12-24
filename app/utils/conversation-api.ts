@@ -1,5 +1,5 @@
 /**
- * Conversation API Client - WITH FILE ATTACHMENT SUPPORT
+ * Conversation API Client - WITH FILE ATTACHMENT SUPPORT + DELETE + PIN/UNPIN
  * 
  * All API endpoints for managing conversations and messages.
  * Uses AWS Cognito access_token for authentication.
@@ -41,10 +41,12 @@ export interface Conversation {
   name: string;
   total_messages: number;
   created_at: string;
+  is_pinned?: boolean;
 }
 
 export interface GetConversationsResponse {
   conversations: Conversation[];
+  pinned_conversations?: Conversation[];
 }
 
 export interface NewQueryResponse {
@@ -82,6 +84,15 @@ export interface Message {
 
 export interface DeleteConversationResponse {
   success: boolean;
+  conversation_id: string;
+  deleted_at: string;
+  message: string;
+}
+
+export interface TogglePinResponse {
+  success: boolean;
+  conversation_id: string;
+  is_pinned: boolean;
   message: string;
 }
 
@@ -158,7 +169,20 @@ export async function getAllConversations(): Promise<Conversation[]> {
     }
 
     const data: GetConversationsResponse = await response.json();
-    return data.conversations || [];
+    
+    // Combine regular and pinned conversations, marking pinned ones
+    const regularConversations = (data.conversations || []).map(conv => ({
+      ...conv,
+      is_pinned: false,
+    }));
+    
+    const pinnedConversations = (data.pinned_conversations || []).map(conv => ({
+      ...conv,
+      is_pinned: true,
+    }));
+    
+    // Return pinned conversations first, then regular ones
+    return [...pinnedConversations, ...regularConversations];
   } catch (error) {
     console.error('Error fetching conversations:', error);
     throw error;
@@ -448,10 +472,14 @@ export async function getConversationMessages(
   conversationId: string
 ): Promise<Message[]> {
   try {
+    const userEmail = getUserEmail();
     const headers = getAuthHeaders();
     const url = USE_PROXY
-      ? buildApiUrl(`/conversation/${conversationId}`)
-      : `${API_BASE_URL}/conversation/${conversationId}`;
+      ? buildApiUrl(`/conversation/${conversationId}`, { user_id: userEmail })
+      : `${API_BASE_URL}/conversation/${conversationId}?user_id=${encodeURIComponent(userEmail)}`;
+
+    console.log('Fetching messages for conversation:', conversationId);
+    console.log('Request URL:', url);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -477,10 +505,19 @@ export async function getConversationMessages(
     }
 
     const data = await response.json();
+    console.log('API response data:', data);
 
-    if (data.error) {
+    // Check if there's a non-empty error
+    if (data.error && data.error.trim() !== '') {
       console.error('API returned error:', data.error);
-      return [];
+      // Check case-insensitively if it's a "not found" error
+      const errorLower = String(data.error).toLowerCase();
+      if (errorLower.includes('not found') || errorLower.includes('notfound')) {
+        console.warn(`Conversation ${conversationId} not found, returning empty array`);
+        return [];
+      }
+      // Otherwise throw the error
+      throw new Error(data.error);
     }
 
     const messages: Message[] = (data.messages || []).map((msg: any) => {
@@ -523,14 +560,22 @@ export async function getConversationMessages(
  */
 export async function deleteConversation(conversationId: string): Promise<DeleteConversationResponse> {
   try {
+    console.log('deleteConversation API called for:', conversationId);
+    const userEmail = getUserEmail();
     const headers = getAuthHeaders();
     const url = USE_PROXY
       ? buildApiUrl(`/conversation/${conversationId}`)
       : `${API_BASE_URL}/conversation/${conversationId}`;
 
+    console.log('DELETE request URL:', url);
+    console.log('DELETE request body:', { user_id: userEmail });
+
     const response = await fetch(url, {
       method: 'DELETE',
       headers,
+      body: JSON.stringify({
+        user_id: userEmail,
+      }),
     });
 
     if (!response.ok) {
@@ -547,6 +592,8 @@ export async function deleteConversation(conversationId: string): Promise<Delete
         clearLocalMessages(conversationId);
         return { 
           success: true, 
+          conversation_id: conversationId,
+          deleted_at: new Date().toISOString(),
           message: 'Conversation not found (already deleted)' 
         };
       }
@@ -558,17 +605,70 @@ export async function deleteConversation(conversationId: string): Promise<Delete
     // Clear local cache
     clearLocalMessages(conversationId);
 
-    const data = await response.json().catch(() => ({ 
-      success: true, 
-      message: 'Conversation deleted' 
-    }));
+    const data = await response.json();
     
     return { 
-      success: true, 
+      success: data.success || true,
+      conversation_id: data.conversation_id || conversationId,
+      deleted_at: data.deleted_at || new Date().toISOString(),
       message: data.message || 'Conversation deleted successfully' 
     };
   } catch (error) {
     console.error('Error deleting conversation:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// PIN/UNPIN CONVERSATION
+// ============================================================================
+
+/**
+ * Toggle pin status of a conversation
+ */
+export async function togglePinConversation(conversationId: string): Promise<TogglePinResponse> {
+  try {
+    console.log('togglePinConversation API called for:', conversationId);
+    const userEmail = getUserEmail();
+    const headers = getAuthHeaders();
+    const url = USE_PROXY
+      ? buildApiUrl(`/conversation/${conversationId}/toggle-pin`)
+      : `${API_BASE_URL}/conversation/${conversationId}/toggle-pin`;
+
+    console.log('POST toggle-pin URL:', url);
+    console.log('POST toggle-pin body:', { user_id: userEmail });
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        user_id: userEmail,
+      }),
+    });
+
+    if (!response.ok) {
+      if (response.status === 401 || response.status === 403) {
+        if (typeof window !== 'undefined') {
+          sessionStorage.clear();
+          window.location.href = '/login';
+        }
+        throw new Error('Authentication failed. Please log in again.');
+      }
+
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`Failed to toggle pin: ${response.status} ${errorText}`);
+    }
+
+    const data = await response.json();
+    
+    return {
+      success: data.success || true,
+      conversation_id: data.conversation_id || conversationId,
+      is_pinned: data.is_pinned || false,
+      message: data.message || 'Pin status toggled successfully',
+    };
+  } catch (error) {
+    console.error('Error toggling pin:', error);
     throw error;
   }
 }

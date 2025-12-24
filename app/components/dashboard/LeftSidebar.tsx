@@ -2,12 +2,30 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { PanelLeftClose, PlusSquare, MoreVertical } from 'lucide-react';
+import { PanelLeftClose, PlusSquare, MoreVertical, Pin, Trash2 } from 'lucide-react';
 import Logo from '../ui/Logo'
 import Avatar from '../ui/Avatar';
 import ConversationList from './ConversationList';
 import { getInitials } from '@/utils/auth';
 import type { Conversation } from '@/utils/conversation-api';
+
+// Utility function to format relative time
+function getTimeAgo(dateString: string): string {
+  const now = new Date();
+  const date = new Date(dateString);
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffDays < 30) return `${Math.floor(diffDays / 7)}w ago`;
+  return date.toLocaleDateString();
+}
+
 
 interface LeftSidebarProps {
   isOpen: boolean;
@@ -16,11 +34,15 @@ interface LeftSidebarProps {
   currentConversationId?: string | null;
   onSelectConversation?: (conversationId: string) => void;
   onNewConversation?: () => void;
+  onDeleteConversation?: (conversationId: string) => void;
+  onTogglePin?: (conversationId: string) => void;
   isLoadingConversations?: boolean;
+  isDeleting?: boolean;
+  isPinning?: boolean;
 }
 
 /**
- * LeftSidebar - Brutalist Design without internal collapse button
+ * LeftSidebar - Brutalist Design with delete and pin functionality
  * Dark theme with red accents, monospace fonts
  */
 const LeftSidebar: React.FC<LeftSidebarProps> = ({ 
@@ -30,7 +52,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
   currentConversationId = null,
   onSelectConversation,
   onNewConversation,
+  onDeleteConversation,
+  onTogglePin,
   isLoadingConversations = false,
+  isDeleting = false,
+  isPinning = false,
 }) => {
   const router = useRouter();
   const [userName, setUserName] = useState<string>('User');
@@ -73,6 +99,48 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
     setMenuOpen(false);
     router.push('/login');
   };
+
+  const handleDelete = (conversationId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    console.log('Delete button clicked for:', conversationId);
+    console.log('onDeleteConversation exists?', !!onDeleteConversation);
+    console.log('onDeleteConversation function:', onDeleteConversation);
+    
+    if (confirm('Are you sure you want to delete this conversation?')) {
+      console.log('User confirmed deletion, calling onDeleteConversation');
+      if (onDeleteConversation) {
+        onDeleteConversation(conversationId);
+      } else {
+        console.error('onDeleteConversation is not defined!');
+      }
+    }
+  };
+
+  const handleTogglePin = (conversationId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    console.log('Toggle pin clicked for:', conversationId);
+    console.log('onTogglePin exists?', !!onTogglePin);
+    console.log('onTogglePin function:', onTogglePin);
+    
+    if (onTogglePin) {
+      onTogglePin(conversationId);
+    } else {
+      console.error('onTogglePin is not defined!');
+    }
+  };
+
+  // Separate pinned and unpinned conversations
+  const pinnedConversations = conversations.filter(c => c.is_pinned);
+  const unpinnedConversations = conversations.filter(c => !c.is_pinned);
+
+  // Filter conversations based on search
+  const filterConversations = (convs: Conversation[]) => 
+    convs.filter(conv => 
+      conv.name.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+  const filteredPinned = filterConversations(pinnedConversations);
+  const filteredUnpinned = filterConversations(unpinnedConversations);
 
   return (
     <div className={`${isOpen ? 'w-64' : 'w-0'} flex-shrink-0 border-r border-gray-800 bg-gray-900 flex flex-col transition-all duration-300 ease-in-out overflow-hidden relative`}>
@@ -126,29 +194,187 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
       </div>
 
       {/* Conversations Section */}
-      <div className="flex-shrink-0 px-4 pb-3">
-        <div className="flex items-center justify-between font-mono">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-            Conversations
-          </h3>
-          <span className="text-xs text-gray-600">
-            {conversations.filter(conv => 
-              conv.name.toLowerCase().includes(searchQuery.toLowerCase())
-            ).length}
-          </span>
-        </div>
-      </div>
-
-      {/* Conversation List */}
       <div className="flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700">
-        <ConversationList
-          conversations={conversations.filter(conv => 
-            conv.name.toLowerCase().includes(searchQuery.toLowerCase())
-          )}
-          currentConversationId={currentConversationId}
-          onSelectConversation={onSelectConversation || (() => {})}
-          isLoading={isLoadingConversations}
-        />
+        {/* Pinned Conversations */}
+        {filteredPinned.length > 0 && (
+          <div className="mb-4">
+            <div className="px-4 pb-2 pt-1">
+              <div className="flex items-center justify-between font-mono">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-2">
+                  <Pin size={12} className="text-red-600" />
+                  Pinned
+                </h3>
+                <span className="text-xs text-gray-600">
+                  {filteredPinned.length}
+                </span>
+              </div>
+            </div>
+            <div className="space-y-1 px-2 font-mono">
+              {filteredPinned.map((conversation) => {
+                const isActive = conversation.id === currentConversationId;
+                
+                return (
+                  <div key={conversation.id} className="relative group">
+                    <button
+                      onClick={() => { console.log("Selecting conversation:", conversation.id, conversation.name); onSelectConversation?.(conversation.id); }}
+                      className={`
+                        w-full text-left px-3 py-2.5 rounded-lg transition-all font-mono
+                        ${isActive 
+                          ? 'bg-red-950 border border-red-800' 
+                          : 'hover:bg-gray-700 border border-transparent'
+                        }
+                      `}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h4 className={`
+                            text-sm font-normal truncate
+                            ${isActive 
+                              ? 'text-red-100' 
+                              : 'text-gray-100'
+                            }
+                          `}>
+                            {conversation.name}
+                          </h4>
+                          <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                            <span>
+                              {conversation.total_messages} msg{conversation.total_messages !== 1 ? 's' : ''}
+                            </span>
+                          <span>•</span>
+                            <span>{getTimeAgo(conversation.created_at)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                    
+                    {/* Action Icons - Show on hover */}
+                    <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Pin/Unpin Button */}
+                      <button
+                        onClick={(e) => handleTogglePin(conversation.id, e)}
+                        disabled={isPinning}
+                        className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-600 rounded transition-all disabled:opacity-50"
+                        title={conversation.is_pinned ? "Unpin conversation" : "Pin conversation"}
+                      >
+                        <Pin size={14} className={conversation.is_pinned ? "fill-red-400 text-red-400" : ""} />
+                      </button>
+                      
+                      {/* Delete Button */}
+                      <button
+                        onClick={(e) => handleDelete(conversation.id, e)}
+                        disabled={isDeleting}
+                        className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-600 rounded transition-all disabled:opacity-50"
+                        title="Delete conversation"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Regular Conversations */}
+        {filteredUnpinned.length > 0 && (
+          <div>
+            <div className="px-4 pb-2 pt-1">
+              <div className="flex items-center justify-between font-mono">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                  Recent
+                </h3>
+                <span className="text-xs text-gray-600">
+                  {filteredUnpinned.length}
+                </span>
+              </div>
+            </div>
+            <div className="space-y-1 px-2 font-mono">
+              {filteredUnpinned.map((conversation) => {
+                const isActive = conversation.id === currentConversationId;
+                
+                return (
+                  <div key={conversation.id} className="relative group">
+                    <button
+                      onClick={() => { console.log("Selecting conversation:", conversation.id, conversation.name); onSelectConversation?.(conversation.id); }}
+                      className={`
+                        w-full text-left px-3 py-2.5 rounded-lg transition-all font-mono
+                        ${isActive 
+                          ? 'bg-red-950 border border-red-800' 
+                          : 'hover:bg-gray-700 border border-transparent'
+                        }
+                      `}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <h4 className={`
+                            text-sm font-normal truncate
+                            ${isActive 
+                              ? 'text-red-100' 
+                              : 'text-gray-100'
+                            }
+                          `}>
+                            {conversation.name}
+                          </h4>
+                          <div className="flex items-center gap-2 text-xs text-gray-400 mt-1">
+                            <span>
+                              {conversation.total_messages} msg{conversation.total_messages !== 1 ? 's' : ''}
+                            </span>
+                          <span>•</span>
+                            <span>{getTimeAgo(conversation.created_at)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                    
+                    {/* Action Icons - Show on hover */}
+                    <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      {/* Pin/Unpin Button */}
+                      <button
+                        onClick={(e) => handleTogglePin(conversation.id, e)}
+                        disabled={isPinning}
+                        className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-600 rounded transition-all disabled:opacity-50"
+                        title={conversation.is_pinned ? "Unpin conversation" : "Pin conversation"}
+                      >
+                        <Pin size={14} className={conversation.is_pinned ? "fill-red-400 text-red-400" : ""} />
+                      </button>
+                      
+                      {/* Delete Button */}
+                      <button
+                        onClick={(e) => handleDelete(conversation.id, e)}
+                        disabled={isDeleting}
+                        className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-600 rounded transition-all disabled:opacity-50"
+                        title="Delete conversation"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {filteredPinned.length === 0 && filteredUnpinned.length === 0 && !isLoadingConversations && (
+          <div className="px-4 py-8 text-center">
+            <p className="text-sm text-gray-400">
+              {searchQuery ? 'No conversations found' : 'No conversations yet'}
+            </p>
+            <p className="text-xs text-gray-500 mt-1">
+              {searchQuery ? 'Try a different search' : 'Start a new chat to begin'}
+            </p>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {isLoadingConversations && (
+          <div className="px-4 py-8 text-center">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto"></div>
+            <p className="text-xs text-gray-500 mt-2">Loading...</p>
+          </div>
+        )}
       </div>
 
       {/* User Profile Section */}
