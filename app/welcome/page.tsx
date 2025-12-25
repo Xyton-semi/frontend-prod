@@ -145,7 +145,7 @@ export default function WelcomePage() {
             onClick={handleLogin}
             className="text-sm text-gray-400 hover:text-gray-200 font-medium transition-colors"
           >
-            Sign In
+            Sign Out
           </button>
         </div>
       </div>

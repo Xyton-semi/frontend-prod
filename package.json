@@ -1,12 +1,39 @@
 {
-  "name": "exmpl-ai",
-  "version": "0.1.0",
+  "name": "xytonsemi",
+  "version": "0.0.1",
+  "main": "main.js",
   "private": true,
+  "description": "Xyton Semiconductor AI",
+  "author": "Your Name",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "electron:dev": "concurrently -k \"cross-env BROWSER=none next dev\" \"wait-on http://localhost:3000 && electron .\"",
+    "electron:build": "next build && electron-builder",
+    "electron:build:mac": "next build && electron-builder --mac",
+    "electron:build:win": "next build && electron-builder --win"
+  },
+  "build": {
+    "appId": "com.exmpl-ai.app",
+    "productName": "Exmpl AI",
+    "files": [
+      "out/**/*",
+      "main.js",
+      "package.json"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "public/favicon.ico"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "public/favicon.ico"
+    }
   },
   "dependencies": {
     "@aws-amplify/ui-react": "^6.13.1",
@@ -28,9 +55,14 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^39.2.7",
+    "electron-builder": "^26.0.12",
     "eslint": "^9",
     "eslint-config-next": "^16.1.1",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wait-on": "^9.0.3"
   }
 }

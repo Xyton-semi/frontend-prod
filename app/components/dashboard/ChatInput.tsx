@@ -12,12 +12,11 @@ interface ChatInputProps {
 
 /**
  * Chat input component for the analog design AI agent.
- * Simplified design matching Figma specifications with API integration.
  */
 const ChatInput: React.FC<ChatInputProps> = ({ 
   onSubmit,
   placeholder = "Request any changes...",
-  conversationId = "5f66002a-6690-48ae-b184-716034f36855" // Default from your Postman
+  conversationId = "5f66002a-6690-48ae-b184-716034f36855" // Default conversation ID
 }) => {
   const [input, setInput] = useState('');
   const [isComposing, setIsComposing] = useState(false);

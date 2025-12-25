@@ -43,7 +43,7 @@ interface LeftSidebarProps {
 
 /**
  * LeftSidebar - Brutalist Design with delete and pin functionality
- * Dark theme with red accents, monospace fonts
+ * Dark theme with red accents, monospace fonts, smooth animations
  */
 const LeftSidebar: React.FC<LeftSidebarProps> = ({ 
   isOpen, 
@@ -143,10 +143,24 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
   const filteredUnpinned = filterConversations(unpinnedConversations);
 
   return (
-    <div className={`${isOpen ? 'w-64' : 'w-0'} flex-shrink-0 border-r border-gray-800 bg-gray-900 flex flex-col transition-all duration-300 ease-in-out overflow-hidden relative`}>
+    <div 
+      className={`
+        ${isOpen ? 'w-64' : 'w-0'} 
+        flex-shrink-0 border-r border-gray-800 bg-gray-900 flex flex-col 
+        transition-all duration-500 ease-in-out overflow-hidden relative
+        ${isOpen ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-4'}
+      `}
+      style={{
+        transform: isOpen ? 'translateX(0)' : 'translateX(-100%)',
+      }}
+    >
       {/* Header - With collapse button */}
-      <div className="p-4 flex items-center justify-between flex-shrink-0 border-b border-gray-800">
-        <div className="text-red-900 font-mono font-bold text-xl tracking-wider">XYTON</div>
+      <div className={`
+        p-4 flex items-center justify-between flex-shrink-0 border-b border-gray-800
+        transition-all duration-500 delay-100
+        ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}
+      `}>
+        <div className="text-red-900 font-mono font-bold text-xl tracking-wider"></div>
         <button
           onClick={() => setIsOpen(false)}
           className="text-gray-500 hover:text-gray-300 hover:bg-gray-800 p-1.5 rounded transition-colors"
@@ -157,10 +171,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
       </div>
 
       {/* New Conversation Button */}
-      <div className="px-3 py-4 flex-shrink-0">
+      <div className={`
+        px-3 py-4 flex-shrink-0
+        transition-all duration-500 delay-150
+        ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}
+      `}>
         <button
           onClick={onNewConversation}
-          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-900 hover:bg-red-700 text-white text-sm font-mono rounded-sm transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-red-900 hover:bg-red-700 text-white text-sm font-mono rounded-sm transition-all duration-300 hover:scale-105 active:scale-95"
         >
           <PlusSquare size={18} />
           <span>New Design</span>
@@ -168,7 +186,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
       </div>
 
       {/* Search Input */}
-      <div className="px-3 pb-3 flex-shrink-0">
+      <div className={`
+        px-3 pb-3 flex-shrink-0
+        transition-all duration-500 delay-200
+        ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}
+      `}>
         <div className="relative">
           <input
             type="text"
@@ -194,10 +216,14 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
       </div>
 
       {/* Conversations Section */}
-      <div className="flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700">
+      <div className={`
+        flex-grow overflow-y-auto scrollbar-thin scrollbar-thumb-gray-700
+        transition-all duration-500 delay-250
+        ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'}
+      `}>
         {/* Pinned Conversations */}
         {filteredPinned.length > 0 && (
-          <div className="mb-4">
+          <div className="mb-4 animate-in fade-in slide-in-from-left duration-500">
             <div className="px-4 pb-2 pt-1">
               <div className="flex items-center justify-between font-mono">
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide flex items-center gap-2">
@@ -210,18 +236,22 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
               </div>
             </div>
             <div className="space-y-1 px-2 font-mono">
-              {filteredPinned.map((conversation) => {
+              {filteredPinned.map((conversation, index) => {
                 const isActive = conversation.id === currentConversationId;
                 
                 return (
-                  <div key={conversation.id} className="relative group">
+                  <div 
+                    key={conversation.id} 
+                    className="relative group animate-in fade-in slide-in-from-left duration-500"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
                     <button
                       onClick={() => { console.log("Selecting conversation:", conversation.id, conversation.name); onSelectConversation?.(conversation.id); }}
                       className={`
-                        w-full text-left px-3 py-2.5 rounded-lg transition-all font-mono
+                        w-full text-left px-3 py-2.5 rounded-lg transition-all duration-300 font-mono
                         ${isActive 
-                          ? 'bg-red-950 border border-red-800' 
-                          : 'hover:bg-gray-700 border border-transparent'
+                          ? 'bg-red-950 border border-red-800 scale-105' 
+                          : 'hover:bg-gray-700 border border-transparent hover:scale-102'
                         }
                       `}
                     >
@@ -248,12 +278,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                     </button>
                     
                     {/* Action Icons - Show on hover */}
-                    <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300">
                       {/* Pin/Unpin Button */}
                       <button
                         onClick={(e) => handleTogglePin(conversation.id, e)}
                         disabled={isPinning}
-                        className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-600 rounded transition-all disabled:opacity-50"
+                        className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-600 rounded transition-all duration-200 hover:scale-110 disabled:opacity-50"
                         title={conversation.is_pinned ? "Unpin conversation" : "Pin conversation"}
                       >
                         <Pin size={14} className={conversation.is_pinned ? "fill-red-400 text-red-400" : ""} />
@@ -263,7 +293,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                       <button
                         onClick={(e) => handleDelete(conversation.id, e)}
                         disabled={isDeleting}
-                        className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-600 rounded transition-all disabled:opacity-50"
+                        className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-600 rounded transition-all duration-200 hover:scale-110 disabled:opacity-50"
                         title="Delete conversation"
                       >
                         <Trash2 size={14} />
@@ -278,7 +308,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
         {/* Regular Conversations */}
         {filteredUnpinned.length > 0 && (
-          <div>
+          <div className="animate-in fade-in slide-in-from-left duration-500 delay-100">
             <div className="px-4 pb-2 pt-1">
               <div className="flex items-center justify-between font-mono">
                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -290,18 +320,22 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
               </div>
             </div>
             <div className="space-y-1 px-2 font-mono">
-              {filteredUnpinned.map((conversation) => {
+              {filteredUnpinned.map((conversation, index) => {
                 const isActive = conversation.id === currentConversationId;
                 
                 return (
-                  <div key={conversation.id} className="relative group">
+                  <div 
+                    key={conversation.id} 
+                    className="relative group animate-in fade-in slide-in-from-left duration-500"
+                    style={{ animationDelay: `${index * 50}ms` }}
+                  >
                     <button
                       onClick={() => { console.log("Selecting conversation:", conversation.id, conversation.name); onSelectConversation?.(conversation.id); }}
                       className={`
-                        w-full text-left px-3 py-2.5 rounded-lg transition-all font-mono
+                        w-full text-left px-3 py-2.5 rounded-lg transition-all duration-300 font-mono
                         ${isActive 
-                          ? 'bg-red-950 border border-red-800' 
-                          : 'hover:bg-gray-700 border border-transparent'
+                          ? 'bg-red-950 border border-red-800 scale-105' 
+                          : 'hover:bg-gray-700 border border-transparent hover:scale-102'
                         }
                       `}
                     >
@@ -328,12 +362,12 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                     </button>
                     
                     {/* Action Icons - Show on hover */}
-                    <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="absolute right-2 top-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all duration-300">
                       {/* Pin/Unpin Button */}
                       <button
                         onClick={(e) => handleTogglePin(conversation.id, e)}
                         disabled={isPinning}
-                        className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-600 rounded transition-all disabled:opacity-50"
+                        className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-600 rounded transition-all duration-200 hover:scale-110 disabled:opacity-50"
                         title={conversation.is_pinned ? "Unpin conversation" : "Pin conversation"}
                       >
                         <Pin size={14} className={conversation.is_pinned ? "fill-red-400 text-red-400" : ""} />
@@ -343,7 +377,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
                       <button
                         onClick={(e) => handleDelete(conversation.id, e)}
                         disabled={isDeleting}
-                        className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-600 rounded transition-all disabled:opacity-50"
+                        className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-600 rounded transition-all duration-200 hover:scale-110 disabled:opacity-50"
                         title="Delete conversation"
                       >
                         <Trash2 size={14} />
@@ -358,7 +392,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
         {/* Empty State */}
         {filteredPinned.length === 0 && filteredUnpinned.length === 0 && !isLoadingConversations && (
-          <div className="px-4 py-8 text-center">
+          <div className="px-4 py-8 text-center animate-in fade-in duration-500">
             <p className="text-sm text-gray-400">
               {searchQuery ? 'No conversations found' : 'No conversations yet'}
             </p>
@@ -370,7 +404,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
 
         {/* Loading State */}
         {isLoadingConversations && (
-          <div className="px-4 py-8 text-center">
+          <div className="px-4 py-8 text-center animate-in fade-in duration-500">
             <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto"></div>
             <p className="text-xs text-gray-500 mt-2">Loading...</p>
           </div>
@@ -378,7 +412,11 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
       </div>
 
       {/* User Profile Section */}
-      <div className="p-4 border-t border-gray-800 flex items-center justify-between flex-shrink-0">
+      <div className={`
+        p-4 border-t border-gray-800 flex items-center justify-between flex-shrink-0
+        transition-all duration-500 delay-300
+        ${isOpen ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}
+      `}>
         <div className="flex items-center space-x-3 flex-1 min-w-0 cursor-pointer" onClick={handleProfileClick}>
           <Avatar src={undefined} alt={getDisplayName()} fallback={getInitials(getDisplayName())} />
           <div className="overflow-hidden flex-1 min-w-0">
@@ -397,7 +435,7 @@ const LeftSidebar: React.FC<LeftSidebarProps> = ({
           </button>
 
           {menuOpen && (
-            <div className="absolute right-0 bottom-full mb-2 w-40 bg-gray-800 border border-gray-700 shadow-lg z-[9999]">
+            <div className="absolute right-0 bottom-full mb-2 w-40 bg-gray-800 border border-gray-700 shadow-lg z-[9999] animate-in fade-in slide-in-from-bottom-2 duration-200">
               <button 
                 onClick={handleSignOut} 
                 className="w-full text-left px-4 py-2 text-xs text-gray-200 hover:bg-gray-700 transition-colors"

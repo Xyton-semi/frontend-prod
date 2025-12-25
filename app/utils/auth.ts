@@ -7,9 +7,8 @@
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://7j7y34kk48.execute-api.us-east-1.amazonaws.com/v1';
 
-// ============================================================================
+
 // TOKEN MANAGEMENT
-// ============================================================================
 
 /**
  * Decode JWT token without verification (client-side only)
@@ -108,9 +107,7 @@ export function clearTokens() {
   sessionStorage.removeItem('userEmail');
 }
 
-// ============================================================================
 // AUTHENTICATION - COGNITO AMPLIFY
-// ============================================================================
 
 /**
  * Register/Signup new user
@@ -225,7 +222,7 @@ export async function login(params: LoginParams): Promise<LoginResponse> {
 
     // Validate that we got at least an accessToken
     if (!tokens.accessToken) {
-      console.error('❌ No access_token found in response!');
+      console.error('No access_token found in response!');
       throw new Error('Invalid login: Password or username is incorrect.');
     }
 
@@ -251,10 +248,10 @@ export async function login(params: LoginParams): Promise<LoginResponse> {
       sessionStorage.setItem('userEmail', userInfo.email);
     }
 
-    console.log('✅ Login successful!');
+    console.log('Login successful!');
     return result;
   } catch (error) {
-    console.error('❌ Login error:', error);
+    console.error('Login error:', error);
     throw error;
   }
 }

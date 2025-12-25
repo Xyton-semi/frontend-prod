@@ -9,9 +9,7 @@ import type { FileAttachment } from './file-upload';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://7j7y34kk48.execute-api.us-east-1.amazonaws.com/v1';
 
-// ============================================================================
 // PROXY CONFIGURATION (for CORS handling)
-// ============================================================================
 
 const USE_PROXY = false;
 
@@ -32,9 +30,7 @@ function buildApiUrl(path: string, queryParams?: Record<string, string>): string
   return url;
 }
 
-// ============================================================================
 // TYPES
-// ============================================================================
 
 export interface Conversation {
   id: string;
@@ -102,9 +98,7 @@ export interface MessageWithAttachments {
   filename?: string[]; // API expects 'filename' (singular) but it's an array
 }
 
-// ============================================================================
 // AUTHENTICATION HELPERS
-// ============================================================================
 
 function getAuthHeaders(): Record<string, string> {
   if (typeof window === 'undefined') {
@@ -137,9 +131,7 @@ function getUserEmail(): string {
   return userEmail;
 }
 
-// ============================================================================
 // API FUNCTIONS
-// ============================================================================
 
 export async function getAllConversations(): Promise<Conversation[]> {
   try {
@@ -411,13 +403,11 @@ export async function pollUntilComplete(
   throw new Error('Polling timeout: Message did not complete in time');
 }
 
-// ============================================================================
 // CONVERSATION MESSAGES
-// ============================================================================
 
 /**
- * Remove Claude's thinking content from message content
- * Claude sometimes includes internal reasoning that should not be shown to users.
+ * Remove thinking content from message content
+ * sometimes includes internal reasoning that should not be shown to users.
  */
 function stripThinkingTags(content: string): string {
   if (!content) return content;
@@ -551,9 +541,7 @@ export async function getConversationMessages(
   }
 }
 
-// ============================================================================
 // DELETE CONVERSATION
-// ============================================================================
 
 /**
  * Delete a conversation by ID
@@ -619,9 +607,7 @@ export async function deleteConversation(conversationId: string): Promise<Delete
   }
 }
 
-// ============================================================================
 // PIN/UNPIN CONVERSATION
-// ============================================================================
 
 /**
  * Toggle pin status of a conversation
@@ -673,9 +659,7 @@ export async function togglePinConversation(conversationId: string): Promise<Tog
   }
 }
 
-// ============================================================================
 // LOCAL STORAGE HELPERS
-// ============================================================================
 
 export function storeMessageLocally(conversationId: string, message: Message): void {
   if (typeof window === 'undefined') return;

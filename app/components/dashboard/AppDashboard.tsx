@@ -136,25 +136,23 @@ const AppDashboard = () => {
     }
   }, [customSheets]);
 
-  // ============================================================
-  // UPDATED: Use conversation hook with NEW delete/pin functions
-  // ============================================================
+  // Use conversation hook
   const {
     conversations,
     currentConversationId,
     messages,
     isLoading,
     isSending,
-    isDeleting,              // ← ADDED: Delete loading state
-    isPinning,               // ← ADDED: Pin loading state
+    isDeleting,              
+    isPinning,              
     error,
     loadConversations,
     createNewConversation,
     selectConversation,
     sendMessage,
     stopResponse,
-    deleteConversation,      // ← ADDED: Delete function
-    togglePin,               // ← ADDED: Pin/unpin function
+    deleteConversation,      
+    togglePin,            
     clearError,
   } = useConversation();
 
@@ -182,16 +180,16 @@ const AppDashboard = () => {
     });
   }, [messages, messageSearchQuery]);
 
-  /**
-   * Handle creating a new conversation
-   */
+
+  //Handle creating a new conversation
+  
   const handleNewConversation = async () => {
     selectConversation('');
   };
 
-  /**
-   * Format table data for AI context
-   */
+  
+  //Format table data for AI context
+   
   const formatTableDataForContext = () => {
     const context = [];
     
@@ -249,9 +247,9 @@ const AppDashboard = () => {
     return context.length > 0 ? context.join('\n') : '';
   };
 
-  /**
-   * Handle sending a message with optional table context
-   */
+  
+  //Handle sending a message with optional table context
+   
   const handleSendMessage = async (messageContent: string) => {
     try {
       let messageForAPI = messageContent;
@@ -273,9 +271,9 @@ const AppDashboard = () => {
     }
   };
 
-  /**
-   * Handle data save callbacks - now accepts generic DataRow[]
-   */
+ 
+  //Handle data save callbacks - now accepts generic DataRow[]
+
   const handlePinBoundarySave = (data: DataRow[]) => {
     setPinBoundaryData(data);
     localStorage.setItem('pinBoundaryData', JSON.stringify(data));
@@ -402,7 +400,7 @@ const AppDashboard = () => {
       {/* XYTON logo - top-left when sidebar is open */}
       {leftSidebarOpen && (
         <div className="absolute top-4 left-4 z-50">
-          <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-gray-900 border border-gray-800 shadow-lg">
+          <div className="flex items-center gap-3 px-4 py-2 rounded-lg">
             <div className="text-red-800 font-mono font-bold text-xl tracking-wider">
               XYTON
             </div>
@@ -442,9 +440,8 @@ const AppDashboard = () => {
         </div>
       )}
       
-      {/* ============================================================ */}
-      {/* UPDATED: Left Sidebar with DELETE and PIN props             */}
-      {/* ============================================================ */}
+    {/* Leftsidebar props */}
+
       <LeftSidebar 
         isOpen={leftSidebarOpen} 
         setIsOpen={setLeftSidebarOpen}
@@ -452,24 +449,24 @@ const AppDashboard = () => {
         currentConversationId={currentConversationId}
         onSelectConversation={selectConversation}
         onNewConversation={handleNewConversation}
-        onDeleteConversation={deleteConversation}    // ← ADDED: Delete handler
-        onTogglePin={togglePin}                       // ← ADDED: Pin/unpin handler
+        onDeleteConversation={deleteConversation}    
+        onTogglePin={togglePin}                       
         isLoadingConversations={isLoading}
-        isDeleting={isDeleting}                       // ← ADDED: Delete loading state
-        isPinning={isPinning}                         // ← ADDED: Pin loading state
+        isDeleting={isDeleting}                       
+        isPinning={isPinning}                         
       />
 
       {/* Center - Chat Interface */}
       <div className="flex-1 flex flex-col bg-gray-950 min-w-0 relative">
-        {/* XYTON logo - Centered in chat area when sidebar collapsed */}
+        {/* XYTON logo - Centered in chat area */}
         {!leftSidebarOpen && (
           <>
             <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50">
-              <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-gray-900 border border-gray-800 shadow-lg">
-                <div className="text-red-800 font-mono font-bold text-xl tracking-wider">
+              {/* <div className="flex items-center gap-3 px-4 py-2">
+                <div className="text-red-800 font-mono font-bold text-2xl tracking-wider">
                   XYTON
                 </div>
-              </div>
+              </div> */}
             </div>
             
             {/* Expand sidebar button on left edge */}
@@ -566,28 +563,12 @@ const AppDashboard = () => {
             />
           )}
           
-          {/* Floating Stop Button - Appears while generating */}
+          {/* Stop generating with ESC */}
           {isSending && (
             <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 animate-in fade-in slide-in-from-bottom-4 duration-300">
-              <button
-                onClick={stopResponse}
-                className="flex items-center gap-3 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-full shadow-lg shadow-red-900/50 transition-all hover:scale-105 active:scale-95 group"
-              >
-                <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                  <span className="font-mono text-sm font-medium">Generating...</span>
-                </div>
-                <div className="w-px h-5 bg-white/30"></div>
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <rect x="6" y="6" width="12" height="12" rx="1" />
-                  </svg>
-                  <span className="font-mono text-sm font-bold">Stop</span>
-                </div>
-              </button>
               <div className="text-center mt-2">
                 <span className="text-xs font-mono text-gray-500 bg-gray-900/80 px-3 py-1 rounded-full">
-                  or press <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400 font-mono text-[10px]">ESC</kbd>
+                  Press <kbd className="px-1.5 py-0.5 bg-gray-800 rounded text-gray-400 font-mono text-[10px]">ESC</kbd> to Stop Generating
                 </span>
               </div>
             </div>

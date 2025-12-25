@@ -374,12 +374,12 @@ export function useConversation(): UseConversationResult {
   const pollForResponse = useCallback(async (conversationId: string, messageId: string) => {
     const pollKey = `${conversationId}_${messageId}`;
     if (pollingRef.current.has(pollKey)) {
-      console.log('⚠️ Already polling:', pollKey);
+      console.log('Already polling:', pollKey);
       return;
     }
 
     pollingRef.current.add(pollKey);
-    console.log('🔄 Starting poll for:', messageId);
+    console.log('Starting poll for:', messageId);
 
     // Create abort controller for this polling operation
     const abortController = new AbortController();
@@ -395,19 +395,19 @@ export function useConversation(): UseConversationResult {
         5000,
         abortController.signal
       );
-      console.log('✅ Poll complete! Message length:', status.message.length);
+      console.log('Poll complete! Message length:', status.message.length);
 
       // Cancel any existing stream for this message
       const existingCancel = streamingControllers.current.get(messageId);
       if (existingCancel) {
-        console.log('🛑 Cancelling existing stream');
+        console.log('Cancelling existing stream');
         existingCancel();
         streamingControllers.current.delete(messageId);
       }
 
       // Start streaming effect
       setTimeout(() => {
-        console.log('🎬 Initiating streaming for:', messageId);
+        console.log('Initiating streaming for:', messageId);
         streamMessage(conversationId, messageId, status.message, status.timestamp);
       }, 50);
 
@@ -469,7 +469,7 @@ export function useConversation(): UseConversationResult {
     fullText: string,
     timestamp: string
   ) => {
-    console.log('📺 Setting up stream for:', messageId);
+    console.log('Setting up stream for:', messageId);
     
     let currentIndex = 0;
     let isCancelled = false;
@@ -517,7 +517,7 @@ export function useConversation(): UseConversationResult {
 
         setTimeout(streamChunk, 15);
       } else {
-        console.log('✨ Streaming finished for:', messageId);
+        console.log('Streaming finished for:', messageId);
         updateMessage(fullText, true);
         streamingControllers.current.delete(messageId);
         setIsSending(false);
@@ -581,7 +581,7 @@ export function useConversation(): UseConversationResult {
     streamingControllers.current.clear();
     setIsSending(false);
     
-    console.log('✅ All streams and polling stopped');
+    console.log('All streams and polling stopped');
   }, [currentConversationId]);
 
   /**
@@ -605,7 +605,7 @@ export function useConversation(): UseConversationResult {
    */
   useEffect(() => {
     return () => {
-      console.log('🧹 Cleaning up streams and polling');
+      console.log('Cleaning up streams and polling');
       abortControllers.current.forEach(controller => controller.abort());
       abortControllers.current.clear();
       streamingControllers.current.forEach(cancel => cancel());

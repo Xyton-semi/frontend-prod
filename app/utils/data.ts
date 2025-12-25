@@ -3,9 +3,7 @@
  * CSV parsing and data randomization for demo purposes
  */
 
-// ============================================================================
 // CSV PARSING
-// ============================================================================
 
 export interface CSVRow {
   [key: string]: string;
@@ -72,9 +70,8 @@ function parseCSVLine(line: string): string[] {
   return result;
 }
 
-// ============================================================================
+
 // DATA RANDOMIZATION (for demo purposes)
-// ============================================================================
 
 /**
  * Shuffle an array using Fisher-Yates algorithm
