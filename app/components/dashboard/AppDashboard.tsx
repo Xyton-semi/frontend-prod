@@ -68,11 +68,12 @@ const AppDashboard = () => {
     const loadData = async () => {
       setIsLoadingData(true);
       try {
-        // Try loading from uploaded files first
+        // Load from public folder (works in both dev and Electron)
+        // Using relative paths with ./ prefix for static export
         const [pinRes, reqRes, simRes] = await Promise.all([
-          fetch('/mnt/user-data/uploads/step0_pin_boundary.csv').catch(() => null),
-          fetch('/mnt/user-data/uploads/step1_requirements.csv').catch(() => null),
-          fetch('/mnt/user-data/uploads/step2_simulation_plan.csv').catch(() => null)
+          fetch('./step0_pin_boundary.csv').catch(() => null),
+          fetch('./step1_requirements.csv').catch(() => null),
+          fetch('./step2_simulation_plan.csv').catch(() => null)
         ]);
 
         // Load Pin/Boundary data
@@ -80,10 +81,7 @@ const AppDashboard = () => {
           const pinText = await pinRes.text();
           setPinBoundaryData(parseCSV<DataRow>(pinText));
         } else {
-          // Fallback to public folder
-          const fallbackPin = await fetch('/step0_pin_boundary.csv');
-          const pinText = await fallbackPin.text();
-          setPinBoundaryData(parseCSV<DataRow>(pinText));
+          console.warn('Could not load pin_boundary.csv');
         }
 
         // Load Requirements data
@@ -91,10 +89,7 @@ const AppDashboard = () => {
           const reqText = await reqRes.text();
           setRequirementsData(parseCSV<DataRow>(reqText));
         } else {
-          // Fallback to public folder
-          const fallbackReq = await fetch('/step1_requirements.csv');
-          const reqText = await fallbackReq.text();
-          setRequirementsData(parseCSV<DataRow>(reqText));
+          console.warn('Could not load requirements.csv');
         }
 
         // Load Simulation Plan data
@@ -102,12 +97,7 @@ const AppDashboard = () => {
           const simText = await simRes.text();
           setSimulationPlanData(parseCSV<DataRow>(simText));
         } else {
-          // Fallback to public folder
-          const fallbackSim = await fetch('/step2_simulation_plan.csv').catch(() => null);
-          if (fallbackSim && fallbackSim.ok) {
-            const simText = await fallbackSim.text();
-            setSimulationPlanData(parseCSV<DataRow>(simText));
-          }
+          console.warn('Could not load simulation_plan.csv');
         }
       } catch (error) {
         console.error('Error loading CSV data:', error);

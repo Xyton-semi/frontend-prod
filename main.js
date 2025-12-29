@@ -1,8 +1,6 @@
 const { app, BrowserWindow } = require('electron');
-const path = require('path');
 const serve = require('electron-serve');
 
-// This handles the "TypeError: serve is not a function"
 const serveDir = typeof serve === 'function' ? serve : serve.default;
 const loadURL = serveDir({ directory: 'out' });
 
@@ -22,9 +20,11 @@ function createWindow() {
   
   if (isDev) {
     mainWindow.loadURL('http://localhost:3000');
+    mainWindow.webContents.openDevTools();
   } else {
-    // This will now work correctly without the TypeError
-    loadURL(mainWindow); 
+    loadURL(mainWindow)
+      .then(() => console.log('App loaded'))
+      .catch((err) => console.error('Load error:', err));
   }
 
   mainWindow.on('closed', () => {
@@ -32,10 +32,16 @@ function createWindow() {
   });
 }
 
-app.on('ready', createWindow);
+app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
+  }
+});
+
+app.on('activate', () => {
+  if (mainWindow === null) {
+    createWindow();
   }
 });
