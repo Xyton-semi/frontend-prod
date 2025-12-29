@@ -41,6 +41,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "aws-amplify": "^6.15.8",
     "csv-parser": "^3.2.0",
+    "electron-serve": "^3.0.0",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.553.0",
     "next": "^16.1.1",
@@ -51,7 +52,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
+    "@types/node": "^20.19.27",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@types/react-syntax-highlighter": "^15.5.13",
@@ -62,7 +63,7 @@
     "eslint": "^9",
     "eslint-config-next": "^16.1.1",
     "tailwindcss": "^4",
-    "typescript": "^5",
+    "typescript": "^5.9.3",
     "wait-on": "^9.0.3"
   }
 }

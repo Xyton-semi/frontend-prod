@@ -9,8 +9,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'export',
+  assetPrefix: './', 
+  trailingSlash: true, 
   images: {
-    unoptimized: true, // Required for static export/Electron
+    unoptimized: true, 
   },
 };
 
